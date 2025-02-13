@@ -25,3 +25,12 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# don't need a bunch of model and artifacts
+# Keeps disappearing
+*.jsonl
+*.wav
+*.srt
+*.zip
+models/*
+assets/*

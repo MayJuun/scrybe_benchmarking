@@ -1,0 +1,209 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Generic Transcription Schema",
+    "type": "object",
+    "properties": {
+        "metadata": {
+            "type": "object",
+            "description": "High-level details about the audio file and transcription context",
+            "properties": {
+                "audioFile": {
+                    "type": "string",
+                    "description": "Path or name of the audio file"
+                },
+                "duration": {
+                    "type": "number",
+                    "description": "Total duration of the audio file in seconds"
+                },
+                "language": {
+                    "type": "string",
+                    "description": "Primary language code of the audio (e.g., 'en-US')"
+                },
+                "dominantLanguage": {
+                    "type": "string",
+                    "description": "Detected or assumed dominant language in the conversation"
+                },
+                "domain": {
+                    "type": "string",
+                    "description": "Domain or category of the audio (e.g., 'Lecture', 'Medical')"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "When the transcription was processed"
+                },
+                "transcriber": {
+                    "type": "string",
+                    "description": "Name of the transcription tool or model (e.g., 'Whisper')"
+                },
+                "confidence": {
+                    "type": "number",
+                    "description": "Overall confidence score for the entire transcription",
+                    "minimum": 0,
+                    "maximum": 1
+                },
+                "patientId": {
+                    "type": "string",
+                    "description": "Optional: Unique identifier for the patient (if in medical domain)"
+                },
+                "encounterId": {
+                    "type": "string",
+                    "description": "Optional: Unique identifier for the encounter (if in medical domain)"
+                },
+                "version": {
+                    "type": "string",
+                    "description": "Version of the schema or transcription tool"
+                },
+                "audioQuality": {
+                    "type": "string",
+                    "description": "Quality rating of the audio (e.g., 'good', 'poor')"
+                }
+            },
+            "required": [
+                "audioFile",
+                "duration",
+                "language",
+                "timestamp",
+                "transcriber",
+                "version"
+            ]
+        },
+        "speakers": {
+            "type": "array",
+            "description": "List of speakers identified or referenced in the audio",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "speakerId": {
+                        "type": "string",
+                        "description": "Unique identifier for the speaker"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Name of the speaker, if known"
+                    },
+                    "role": {
+                        "type": "string",
+                        "description": "Role of the speaker (e.g., 'Patient', 'Physician', 'Lecturer')"
+                    },
+                    "dominantLanguage": {
+                        "type": "string",
+                        "description": "Primary language or dialect spoken by the speaker"
+                    }
+                },
+                "required": [
+                    "speakerId"
+                ]
+            }
+        },
+        "segments": {
+            "type": "array",
+            "description": "List of transcription segments with timestamps, speaker attribution, etc.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "segmentId": {
+                        "type": "string",
+                        "description": "Unique identifier for the segment"
+                    },
+                    "start": {
+                        "type": "number",
+                        "description": "Start time of the segment in seconds"
+                    },
+                    "end": {
+                        "type": "number",
+                        "description": "End time of the segment in seconds"
+                    },
+                    "speakerId": {
+                        "type": "string",
+                        "description": "Identifier of the speaker for this segment"
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "Recognized (hypothesis) transcript text for the segment"
+                    },
+                    "referenceText": {
+                        "type": "string",
+                        "description": "Optional ground-truth (reference) text, if available for evaluation"
+                    },
+                    "confidence": {
+                        "type": "number",
+                        "description": "Confidence score for this particular segment",
+                        "minimum": 0,
+                        "maximum": 1
+                    },
+                    "annotations": {
+                        "type": "array",
+                        "description": "Optional annotations (e.g., 'Medication', 'Diagnosis'), if relevant",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "description": "Type of annotation (e.g., 'Medication', 'Diagnosis')"
+                                },
+                                "value": {
+                                    "type": "string",
+                                    "description": "Value of the annotation"
+                                },
+                                "confidence": {
+                                    "type": "number",
+                                    "description": "Confidence score for this annotation",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                }
+                            },
+                            "required": [
+                                "type",
+                                "value"
+                            ]
+                        }
+                    },
+                    "words": {
+                        "type": "array",
+                        "description": "Optional word-level timing information, if needed",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "word": {
+                                    "type": "string",
+                                    "description": "The recognized word"
+                                },
+                                "start": {
+                                    "type": "number",
+                                    "description": "Start time of the word in seconds"
+                                },
+                                "end": {
+                                    "type": "number",
+                                    "description": "End time of the word in seconds"
+                                },
+                                "confidence": {
+                                    "type": "number",
+                                    "description": "Confidence score for this word",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                }
+                            },
+                            "required": [
+                                "word",
+                                "start",
+                                "end"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "segmentId",
+                    "start",
+                    "end",
+                    "speakerId",
+                    "text"
+                ]
+            }
+        }
+    },
+    "required": [
+        "metadata",
+        "segments"
+    ]
+}
