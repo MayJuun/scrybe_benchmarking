@@ -230,29 +230,31 @@ class BenchmarkService {
     ));
 
     final referenceText = await _parseSrtFile(srtFile);
-    print('Got reference text: $referenceText');
 
     final recognizedText = await _decodeAudioFile(asrRecognizer, wavFile.path);
-    print('Got recognized text: $recognizedText');
 
     final cleanedText = recognizedText.toLowerCase().trim();
 
     final finalText = await _applyPunctuation(cleanedText);
-    print('Got final text after punctuation: $finalText');
 
     final wer = WerCalculator.computeWer(referenceText, finalText) * 100.0;
-    print('Computed WER: $wer');
 
-    final relativePath = p.relative(p.dirname(wavFile.path), from: curatedDir);
+// Get the relative directory from curated (e.g., "<group>/<pair-folder>")
+    final relativeDir = p.relative(p.dirname(wavFile.path), from: curatedDir);
+// Get the base name of the chunk file (e.g., "myfile_part1")
+    final fileBaseName = p.basenameWithoutExtension(wavFile.path);
+// Create an extra subdirectory for this particular chunk
     final outSubDir =
-        Directory(p.join(derivedDir, asrModel.name, relativePath));
+        Directory(p.join(derivedDir, asrModel.name, relativeDir, fileBaseName));
     await outSubDir.create(recursive: true);
 
-    final outSrtFilePath = p.join(outSubDir.path, '$base.srt');
+// Save the generated SRT file
+    final outSrtFilePath = p.join(outSubDir.path, '$fileBaseName.srt');
     await File(outSrtFilePath).writeAsString(_generateSrt(finalText));
 
-    final outWerFilePath = p.join(outSubDir.path, '$base-wer.txt');
-    await File(outWerFilePath).writeAsString(
+// Save the comparison text file (original transcript vs generated)
+    final outComparisonFilePath = p.join(outSubDir.path, '$fileBaseName.txt');
+    await File(outComparisonFilePath).writeAsString(
       'Reference: $referenceText\n'
       'Hypothesis: $finalText\n'
       'WER: ${wer.toStringAsFixed(2)}%\n',
@@ -291,12 +293,9 @@ class BenchmarkService {
 
     while (recognizer.isReady(stream)) {
       recognizer.decode(stream);
-      // Optionally print intermediate results
-      print('Intermediate result: ${recognizer.getResult(stream).text}');
     }
 
     final text = recognizer.getResult(stream).text;
-    print('Final recognition result: $text');
     stream.free();
     return text;
   }
@@ -311,7 +310,8 @@ class BenchmarkService {
     final wavFile = Wav.read(fileBytes);
 
     if (wavFile.channels.length != 1) {
-      print('Warning: file has ${wavFile.channels.length} channels, expected 1');
+      print(
+          'Warning: file has ${wavFile.channels.length} channels, expected 1');
     }
     if (wavFile.samplesPerSecond != 16000) {
       print('Warning: file has ${wavFile.samplesPerSecond} Hz, expected 16000');
