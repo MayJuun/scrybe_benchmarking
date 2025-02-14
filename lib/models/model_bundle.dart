@@ -6,6 +6,11 @@ import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 import 'package:wav/wav.dart';
 
 abstract class ModelBundle {
+  ModelBundle({
+    required this.sherpaModelType,
+  });
+  SherpaModelType sherpaModelType;
+
   void free();
 
   Future<String> decodeAudioFile(String audioPath);
@@ -39,6 +44,7 @@ class OfflineModelBundle extends ModelBundle {
   OfflineModelBundle({
     required this.recognizer,
     this.punctuation,
+    required super.sherpaModelType,
   });
 
   factory OfflineModelBundle.fromModel(
@@ -48,7 +54,8 @@ class OfflineModelBundle extends ModelBundle {
     final asrConfig = sherpa.OfflineRecognizerConfig(
       model: sherpa.OfflineModelConfig(
         transducer: asrModel.modelType == SherpaModelType.zipformer ||
-                asrModel.modelType == SherpaModelType.transducer
+                asrModel.modelType == SherpaModelType.transducer ||
+                asrModel.modelType == SherpaModelType.nemoTransducer
             ? sherpa.OfflineTransducerModelConfig(
                 encoder: p.join(modelDir, asrModel.name, asrModel.encoder),
                 decoder: p.join(modelDir, asrModel.name, asrModel.decoder),
@@ -87,6 +94,7 @@ class OfflineModelBundle extends ModelBundle {
     return OfflineModelBundle(
       recognizer: asrRecognizer,
       punctuation: null,
+      sherpaModelType: asrModel.modelType,
     );
   }
 
@@ -111,23 +119,63 @@ class OfflineModelBundle extends ModelBundle {
   }
 
   @override
-  Future<String> decodeAudioFile(
-    String audioPath,
-  ) async {
+  Future<String> decodeAudioFile(String audioPath) async {
     print('Decoding file: $audioPath');
     final stream = recognizer.createStream();
 
-    final samples = await loadWavAsFloat32(audioPath);
+    print('Loading WAV file as Float32...');
+    final rawSamples = await loadWavAsFloat32(audioPath);
+    print('Loaded raw samples: length=${rawSamples.length}, '
+        'first few values=[${rawSamples.take(5).join(", ")}]');
 
-    // print('Loaded ${samples.length} samples');
+    try {
+      // Add preprocessing for NeMo models
+      Float32List processedSamples;
+      if (sherpaModelType == SherpaModelType.nemoTransducer) {
+        print('Preprocessing for NeMo model...');
+        processedSamples = AudioPreprocessor.preprocessAudio(rawSamples);
+        print('Processed samples: length=${processedSamples.length}, '
+            'first few values=[${processedSamples.take(5).join(", ")}]');
 
-    stream.acceptWaveform(samples: samples, sampleRate: 16000);
+        // Debug check for dimensions
+        if (processedSamples.length % 80 != 0) {
+          print(
+              'WARNING: Processed samples length (${processedSamples.length}) is not divisible by 80');
+        }
 
-    recognizer.decode(stream);
+        // Reshape if needed - the model expects [batch_size, time_steps, features]
+        // where features should be 80
+        final timeSteps = processedSamples.length ~/ 80;
+        final reshapedSamples = Float32List(timeSteps * 80);
+        for (var i = 0; i < timeSteps; i++) {
+          for (var j = 0; j < 80; j++) {
+            reshapedSamples[i * 80 + j] = processedSamples[i + j * timeSteps];
+          }
+        }
+        processedSamples = reshapedSamples;
+        print('Reshaped samples to time_steps=$timeSteps, features=80');
+      } else {
+        processedSamples = rawSamples;
+      }
 
-    final text = recognizer.getResult(stream).text;
-    stream.free();
-    return punctuation?.addPunct(text.toLowerCase().trim()) ?? text;
+      print('Accepting waveform into stream...');
+      stream.acceptWaveform(samples: processedSamples, sampleRate: 16000);
+
+      print('Decoding stream...');
+      recognizer.decode(stream);
+
+      print('Getting result...');
+      final text = recognizer.getResult(stream).text;
+      stream.free();
+
+      print('Final text result: $text');
+      return punctuation?.addPunct(text.toLowerCase().trim()) ?? text;
+    } catch (e, stacktrace) {
+      print('Error during processing: $e');
+      print('Stacktrace: $stacktrace');
+      stream.free();
+      rethrow;
+    }
   }
 }
 
@@ -135,6 +183,7 @@ class OnlineModelBundle extends ModelBundle {
   OnlineModelBundle({
     required this.recognizer,
     this.punctuation,
+    required super.sherpaModelType,
   });
 
   factory OnlineModelBundle.fromModel(
@@ -161,6 +210,7 @@ class OnlineModelBundle extends ModelBundle {
     return OnlineModelBundle(
       recognizer: asrRecognizer,
       punctuation: null,
+      sherpaModelType: asrModel.modelType,
     );
   }
 
