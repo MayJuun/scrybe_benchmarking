@@ -17,21 +17,21 @@ final asrModels = [
     modelType: 'zipformer2',
   ),
   // Whisper tiny.en model - float32
-  WhisperModel(
-    name: 'sherpa-onnx-whisper-tiny.en',
-    encoder: 'tiny.en-encoder.onnx',
-    decoder: 'tiny.en-decoder.onnx',
-    joiner: '',
-    tokens: 'tiny.en-tokens.txt',
-  ),
-  // Whisper tiny.en model - int8 quantized
-  WhisperModel(
-    name: 'sherpa-onnx-whisper-tiny.en.int8',
-    encoder: 'tiny.en-encoder.int8.onnx',
-    decoder: 'tiny.en-decoder.int8.onnx',
-    joiner: '',
-    tokens: 'tiny.en-tokens.txt',
-  ),
+  // WhisperModel(
+  //   name: 'sherpa-onnx-whisper-tiny.en',
+  //   encoder: 'tiny.en-encoder.onnx',
+  //   decoder: 'tiny.en-decoder.onnx',
+  //   joiner: '',
+  //   tokens: 'tiny.en-tokens.txt',
+  // ),
+  // // Whisper tiny.en model - int8 quantized
+  // WhisperModel(
+  //   name: 'sherpa-onnx-whisper-tiny.en.int8',
+  //   encoder: 'tiny.en-encoder.int8.onnx',
+  //   decoder: 'tiny.en-decoder.int8.onnx',
+  //   joiner: '',
+  //   tokens: 'tiny.en-tokens.txt',
+  // ),
 ];
 
 // Define punctuation models

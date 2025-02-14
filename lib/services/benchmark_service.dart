@@ -1,3 +1,4 @@
+// benchmark_service.dart
 // ignore_for_file: avoid_print
 
 import 'dart:io';
@@ -61,13 +62,15 @@ class BenchmarkService {
     }
 
     // Final completion update
-    onProgressUpdate(BenchmarkProgress(
-      currentModel: 'Complete',
-      currentFile: 'All models processed',
-      processedFiles: 1,
-      totalFiles: 1,
-      werScore: 0.0,
-    ));
+    onProgressUpdate(
+      BenchmarkProgress(
+        currentModel: 'Complete',
+        currentFile: 'All models processed',
+        processedFiles: 1,
+        totalFiles: 1,
+        werScore: 0.0,
+      ),
+    );
   }
 
   Future<void> _runBenchmarkForModel({
@@ -82,12 +85,14 @@ class BenchmarkService {
         punctuationModel: punctuationModel,
       );
 
-      // final asrRecognizer = modelBundle.asrRecognizer;
-      final topDir = Directory(curatedDir);
+      // We'll store the CSV lines for WER_results here:
       final csvBuffer = StringBuffer();
-      csvBuffer.writeln('chunkPath,refWords,hypWords,WER(%)');
+      // Updated header to include decodeTimeSeconds, chunkAudioSeconds
+      csvBuffer.writeln(
+          'chunkPath,refWords,hypWords,WER(%),decodeTimeSeconds,chunkAudioSeconds');
 
-      // Count total files for progress tracking
+      // We'll count total .wav files, then process them one by one
+      final topDir = Directory(curatedDir);
       final allSubs =
           topDir.listSync(recursive: true).whereType<Directory>().toList();
       int totalFiles = 0;
@@ -99,7 +104,7 @@ class BenchmarkService {
       int processedFiles = 0;
       double totalWer = 0.0;
 
-      // Process each subdirectory
+      // Process each .wav chunk in each subdirectory
       for (final subDir in allSubs) {
         final files = subDir.listSync().whereType<File>().toList();
         final chunkWavs = files.where((f) => p.extension(f.path) == '.wav');
@@ -112,12 +117,14 @@ class BenchmarkService {
               derivedDir: derivedDir,
               asrModel: asrModel,
               curatedDir: curatedDir,
-              onProgressUpdate: (progress) =>
-                  onProgressUpdate(progress.copyWith(
-                processedFiles: processedFiles,
-                totalFiles: totalFiles,
-                werScore: processedFiles > 0 ? totalWer / processedFiles : 0.0,
-              )),
+              onProgressUpdate: (progress) => onProgressUpdate(
+                progress.copyWith(
+                  processedFiles: processedFiles,
+                  totalFiles: totalFiles,
+                  werScore:
+                      (processedFiles > 0) ? totalWer / processedFiles : 0.0,
+                ),
+              ),
             );
 
             if (result != null) {
@@ -132,28 +139,30 @@ class BenchmarkService {
               currentFile: wavFile.path,
               processedFiles: processedFiles,
               totalFiles: totalFiles,
-              werScore: processedFiles > 0 ? totalWer / processedFiles : 0.0,
+              werScore: (processedFiles > 0) ? totalWer / processedFiles : 0.0,
               error: 'Error processing ${wavFile.path}: $e',
             ));
           }
         }
       }
 
-      // Write summary CSV
+      // Write out the final CSV for this model
       final summaryCsvPath =
           p.join(derivedDir, asrModel.name, 'WER_results.csv');
       await File(summaryCsvPath).writeAsString(csvBuffer.toString());
 
       modelBundle.free();
 
-      // Final model update
-      onProgressUpdate(BenchmarkProgress(
-        currentModel: asrModel.name,
-        currentFile: 'Complete',
-        processedFiles: processedFiles,
-        totalFiles: totalFiles,
-        werScore: processedFiles > 0 ? totalWer / processedFiles : 0.0,
-      ));
+      // Final update for this model
+      onProgressUpdate(
+        BenchmarkProgress(
+          currentModel: asrModel.name,
+          currentFile: 'Complete',
+          processedFiles: processedFiles,
+          totalFiles: totalFiles,
+          werScore: (processedFiles > 0) ? totalWer / processedFiles : 0.0,
+        ),
+      );
     } catch (e, stack) {
       print('Error processing model ${asrModel.name}: $e\n$stack');
       onProgressUpdate(BenchmarkProgress(
@@ -175,6 +184,7 @@ class BenchmarkService {
     sherpa.initBindings();
     final modelDir = p.join(Directory.current.path, 'assets', 'models');
 
+    // If it's a WhisperModel, we use the specialized bundle
     if (asrModel is WhisperModel) {
       return WhisperModelBundle.fromModel(asrModel, modelDir);
     } else {
@@ -195,52 +205,74 @@ class BenchmarkService {
     final base = p.basenameWithoutExtension(wavFile.path);
     final srtFile = File(p.join(p.dirname(wavFile.path), '$base.srt'));
 
+    // If no transcript, skip
     if (!srtFile.existsSync()) {
       print('No matching SRT for $wavFile => skip');
       return null;
     }
 
-    onProgressUpdate(BenchmarkProgress(
-      currentModel: asrModel.name,
-      currentFile: wavFile.path,
-      processedFiles: 0,
-      totalFiles: 1,
-    ));
+    // Provide a quick progress update for this file
+    onProgressUpdate(
+      BenchmarkProgress(
+        currentModel: asrModel.name,
+        currentFile: wavFile.path,
+        processedFiles: 0,
+        totalFiles: 1,
+      ),
+    );
 
+    // Parse reference text from the SRT
     final referenceText = await _parseSrtFile(srtFile);
 
+    // Time how long decodeAudioFile() takes
+    final stopwatch = Stopwatch()..start();
     final recognizedText = await modelBundle.decodeAudioFile(wavFile.path);
+    stopwatch.stop();
 
+    final decodeTimeSeconds = stopwatch.elapsedMilliseconds / 1000.0;
+
+    // Apply punctuation if needed
     final cleanedText = recognizedText.toLowerCase().trim();
-
     final finalText = await modelBundle.applyPunctuation(cleanedText);
 
+    // Compute WER
     final wer = WerCalculator.computeWer(referenceText, finalText) * 100.0;
 
-    // Get the relative directory from curated (e.g., "<group>/<pair-folder>")
+    // We assume each chunk is 30s of audio (modify if partial leftover, etc.)
+    final chunkAudioSeconds = 30.0;
+
+    // Build subdirectory for storing results for this chunk
     final relativeDir = p.relative(p.dirname(wavFile.path), from: curatedDir);
-    // Get the base name of the chunk file (e.g., "myfile_part1")
     final fileBaseName = p.basenameWithoutExtension(wavFile.path);
-    // Create an extra subdirectory for this particular chunk
     final outSubDir =
         Directory(p.join(derivedDir, asrModel.name, relativeDir, fileBaseName));
     await outSubDir.create(recursive: true);
 
-    // Save the generated SRT file
+    // Save generated SRT
     final outSrtFilePath = p.join(outSubDir.path, '$fileBaseName.srt');
     await File(outSrtFilePath).writeAsString(_generateSrt(finalText));
 
-    // Save the comparison text file (original transcript vs generated)
+    // Save a quick comparison text file
     final outComparisonFilePath = p.join(outSubDir.path, '$fileBaseName.txt');
     await File(outComparisonFilePath).writeAsString(
       'Reference: $referenceText\n'
       'Hypothesis: $finalText\n'
-      'WER: ${wer.toStringAsFixed(2)}%\n',
+      'WER: ${wer.toStringAsFixed(2)}%\n'
+      'DecodeTime(s): ${decodeTimeSeconds.toStringAsFixed(2)}\n',
     );
 
+    // Return a CSV line with decodeTimeSeconds and chunkAudioSeconds
+    final csvLine = [
+      wavFile.path, // chunkPath
+      referenceText.split(' ').length, // refWords
+      finalText.split(' ').length, // hypWords
+      wer.toStringAsFixed(2), // WER(%)
+      decodeTimeSeconds.toStringAsFixed(2), // decodeTimeSeconds
+      chunkAudioSeconds.toStringAsFixed(2), // chunkAudioSeconds
+    ].join(',');
+
     return ProcessingResult(
-      csvLine:
-          '${wavFile.path},${referenceText.split(' ').length},${finalText.split(' ').length},${wer.toStringAsFixed(2)}',
+      csvLine: csvLine,
       wer: wer,
     );
   }
@@ -258,6 +290,7 @@ class BenchmarkService {
   }
 
   String _generateSrt(String text) {
+    // We assume 30s chunk for demonstration, adjust if needed
     const duration = Duration(seconds: 30);
     final startStr = _formatDuration(Duration.zero);
     final endStr = _formatDuration(duration);

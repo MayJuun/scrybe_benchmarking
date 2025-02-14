@@ -1,6 +1,7 @@
+// benchmark_report_generator.dart
+
 import 'dart:io';
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
@@ -8,7 +9,7 @@ class BenchmarkReportGenerator {
   final String derivedDir;
   final List<AsrModel> asrModels;
   final List<PunctuationModel> punctuationModels;
-  
+
   BenchmarkReportGenerator({
     required this.derivedDir,
     required this.asrModels,
@@ -17,109 +18,132 @@ class BenchmarkReportGenerator {
 
   Future<Map<String, ModelMetrics>> generateReport() async {
     final metrics = <String, ModelMetrics>{};
-    
+
     for (final model in asrModels) {
       final modelDir = Directory(p.join(derivedDir, model.name));
-      if (!await modelDir.exists()) continue;
+      if (!await modelDir.exists()) {
+        continue;
+      }
 
-      // Parse individual file results
-      final results = await _parseModelResults(modelDir);
-      if (results.isEmpty) continue;
+      // Parse the CSV results for this model
+      final results = await _parseModelCsv(modelDir);
+      if (results.isEmpty) {
+        continue;
+      }
 
       // Calculate metrics
       final modelMetrics = _calculateModelMetrics(results);
       metrics[model.name] = modelMetrics;
     }
 
-    // Write comprehensive report
+    // Write comprehensive JSON + Markdown report
     await _writeFullReport(metrics);
-    
+
     return metrics;
   }
 
-  Future<List<FileResult>> _parseModelResults(Directory modelDir) async {
-    final results = <FileResult>[];
-    
-    // Find all comparison files
-    await for (final entity in modelDir.list(recursive: true)) {
-      if (entity is! File) continue;
-      if (!entity.path.endsWith('.txt')) continue;
-      if (!p.basename(entity.path).contains('comparison')) continue;
+  /// Reads the 'WER_results.csv' in [modelDir] and returns a list of [CsvResult].
+  /// Now we expect 6 columns:
+  /// chunkPath, refWords, hypWords, WER(%), decodeTimeSeconds, chunkAudioSeconds
+  Future<List<CsvResult>> _parseModelCsv(Directory modelDir) async {
+    final results = <CsvResult>[];
+    final csvPath = p.join(modelDir.path, 'WER_results.csv');
+    final csvFile = File(csvPath);
 
-      final content = await entity.readAsString();
-      final result = _parseComparisonFile(content, entity.path);
-      if (result != null) {
-        results.add(result);
+    if (!csvFile.existsSync()) {
+      return results; // no CSV => no data
+    }
+
+    final lines = await csvFile.readAsLines();
+    if (lines.isEmpty) {
+      return results;
+    }
+
+    // Skip the header line
+    for (final line in lines.skip(1)) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+
+      // Split into columns
+      final parts = trimmed.split(',');
+      if (parts.length < 6) {
+        // We expect 6 columns based on how we wrote them
+        continue;
       }
+
+      final chunkPath = parts[0];
+      final refCount = int.tryParse(parts[1]) ?? 0;
+      final hypCount = int.tryParse(parts[2]) ?? 0;
+      final werPercentage = double.tryParse(parts[3]) ?? 0.0;
+      final decodeTimeSeconds = double.tryParse(parts[4]) ?? 0.0;
+      final chunkAudioSeconds = double.tryParse(parts[5]) ?? 0.0;
+
+      results.add(
+        CsvResult(
+          chunkPath: chunkPath,
+          refCount: refCount,
+          hypCount: hypCount,
+          werPercentage: werPercentage,
+          decodeTimeSeconds: decodeTimeSeconds,
+          chunkAudioSeconds: chunkAudioSeconds,
+        ),
+      );
     }
 
     return results;
   }
 
-  FileResult? _parseComparisonFile(String content, String path) {
-    try {
-      final lines = content.split('\n');
-      String reference = '';
-      String hypothesis = '';
-      double wer = 0.0;
-      double? duration;
+  /// Aggregates the list of CSV results into a [ModelMetrics] object.
+  ModelMetrics _calculateModelMetrics(List<CsvResult> results) {
+    double totalWer = 0.0;
+    int totalReferenceWords = 0;
+    int totalHypothesisWords = 0;
+    double minWer = double.infinity;
+    double maxWer = double.negativeInfinity;
 
-      for (final line in lines) {
-        if (line.startsWith('Reference:')) {
-          reference = line.substring('Reference:'.length).trim();
-        } else if (line.startsWith('Hypothesis:')) {
-          hypothesis = line.substring('Hypothesis:'.length).trim();
-        } else if (line.startsWith('WER:')) {
-          wer = double.parse(line.substring('WER:'.length).replaceAll('%', '').trim());
-        } else if (line.startsWith('Duration:')) {
-          duration = double.parse(line.substring('Duration:'.length).replaceAll('s', '').trim());
-        }
-      }
+    double totalDecodeTime = 0.0; // sum of decodeTimeSeconds across all chunks
+    double totalAudioTime = 0.0; // sum of chunkAudioSeconds across all chunks
 
-      return FileResult(
-        path: path,
-        reference: reference,
-        hypothesis: hypothesis,
-        wer: wer,
-        duration: duration,
-      );
-    } catch (e) {
-      print('Error parsing comparison file $path: $e');
-      return null;
+    for (final r in results) {
+      final wer = r.werPercentage;
+      totalWer += wer;
+      if (wer < minWer) minWer = wer;
+      if (wer > maxWer) maxWer = wer;
+
+      totalReferenceWords += r.refCount;
+      totalHypothesisWords += r.hypCount;
+
+      totalDecodeTime += r.decodeTimeSeconds;
+      totalAudioTime += r.chunkAudioSeconds;
     }
-  }
 
-  ModelMetrics _calculateModelMetrics(List<FileResult> results) {
-    var totalWer = 0.0;
-    var totalDuration = 0.0;
-    var totalReferenceWords = 0;
-    var totalHypothesisWords = 0;
-    var minWer = double.infinity;
-    var maxWer = double.negativeInfinity;
-    
-    for (final result in results) {
-      totalWer += result.wer;
-      if (result.duration != null) {
-        totalDuration += result.duration!;
-      }
-      totalReferenceWords += result.reference.split(' ').length;
-      totalHypothesisWords += result.hypothesis.split(' ').length;
-      minWer = minWer > result.wer ? result.wer : minWer;
-      maxWer = maxWer < result.wer ? result.wer : maxWer;
-    }
+    final totalFiles = results.length;
+    final avgWer = (totalFiles == 0) ? 0.0 : (totalWer / totalFiles);
+    final wordAccuracy = 1.0 - (avgWer / 100.0);
+
+    // Compute average decode time
+    final averageDecodeTime =
+        (totalFiles == 0) ? 0.0 : (totalDecodeTime / totalFiles);
+
+    // Compute Real-Time Factor (RTF) = totalDecodeTime / totalAudioTime
+    // If totalAudioTime == 0, RTF = 0
+    final realTimeFactor =
+        (totalAudioTime == 0) ? 0.0 : (totalDecodeTime / totalAudioTime);
 
     return ModelMetrics(
-      totalFiles: results.length,
-      averageWer: totalWer / results.length,
-      minWer: minWer,
-      maxWer: maxWer,
-      totalDurationSeconds: totalDuration,
+      totalFiles: totalFiles,
+      averageWer: avgWer,
+      minWer: minWer.isInfinite ? 0.0 : minWer,
+      maxWer: maxWer == double.negativeInfinity ? 0.0 : maxWer,
       totalReferenceWords: totalReferenceWords,
       totalHypothesisWords: totalHypothesisWords,
-      wordAccuracy: 1 - ((totalWer / results.length) / 100),
+      wordAccuracy: wordAccuracy,
+      averageDecodeTime: averageDecodeTime,
+      realTimeFactor: realTimeFactor,
     );
   }
 
+  /// Writes out a JSON and a Markdown report summarizing model metrics
   Future<void> _writeFullReport(Map<String, ModelMetrics> metrics) async {
     final reportDir = Directory(p.join(derivedDir, 'reports'));
     await reportDir.create(recursive: true);
@@ -143,8 +167,10 @@ class BenchmarkReportGenerator {
       ..writeln()
       ..writeln('## Summary')
       ..writeln()
-      ..writeln('| Model | Files | Avg WER | Min WER | Max WER | Duration | Word Accuracy |')
-      ..writeln('|-------|--------|---------|---------|---------|-----------|---------------|');
+      ..writeln(
+          '| Model | Files | Avg WER | Min WER | Max WER | Word Accuracy | Avg Decode (s) | RTF |')
+      ..writeln(
+          '|-------|-------|---------|---------|---------|---------------|----------------|-----|');
 
     metrics.forEach((model, metric) {
       final row = [
@@ -153,8 +179,9 @@ class BenchmarkReportGenerator {
         '${metric.averageWer.toStringAsFixed(2)}%',
         '${metric.minWer.toStringAsFixed(2)}%',
         '${metric.maxWer.toStringAsFixed(2)}%',
-        '${metric.totalDurationSeconds.toStringAsFixed(1)}s',
         '${(metric.wordAccuracy * 100).toStringAsFixed(2)}%',
+        metric.averageDecodeTime.toStringAsFixed(2),
+        metric.realTimeFactor.toStringAsFixed(2),
       ];
       mdReport.writeln('| ${row.join(' | ')} |');
     });
@@ -164,138 +191,61 @@ class BenchmarkReportGenerator {
   }
 }
 
+/// Represents a single row of CSV data from `WER_results.csv`.
+/// Now includes decodeTimeSeconds and chunkAudioSeconds.
+class CsvResult {
+  final String chunkPath;
+  final int refCount;
+  final int hypCount;
+  final double werPercentage;
+  final double decodeTimeSeconds;
+  final double chunkAudioSeconds;
+
+  CsvResult({
+    required this.chunkPath,
+    required this.refCount,
+    required this.hypCount,
+    required this.werPercentage,
+    required this.decodeTimeSeconds,
+    required this.chunkAudioSeconds,
+  });
+}
+
+/// Metrics for a single model after aggregating all CSV lines
 class ModelMetrics {
   final int totalFiles;
   final double averageWer;
   final double minWer;
   final double maxWer;
-  final double totalDurationSeconds;
   final int totalReferenceWords;
   final int totalHypothesisWords;
   final double wordAccuracy;
+
+  /// Additional timing stats
+  final double averageDecodeTime; // avg decode time across all chunks
+  final double realTimeFactor; // totalDecodeTime / totalAudioTime
 
   ModelMetrics({
     required this.totalFiles,
     required this.averageWer,
     required this.minWer,
     required this.maxWer,
-    required this.totalDurationSeconds,
     required this.totalReferenceWords,
     required this.totalHypothesisWords,
     required this.wordAccuracy,
+    this.averageDecodeTime = 0.0,
+    this.realTimeFactor = 0.0,
   });
 
   Map<String, dynamic> toJson() => {
-    'totalFiles': totalFiles,
-    'averageWer': averageWer,
-    'minWer': minWer,
-    'maxWer': maxWer,
-    'totalDurationSeconds': totalDurationSeconds,
-    'totalReferenceWords': totalReferenceWords,
-    'totalHypothesisWords': totalHypothesisWords,
-    'wordAccuracy': wordAccuracy,
-  };
-}
-
-class FileResult {
-  final String path;
-  final String reference;
-  final String hypothesis;
-  final double wer;
-  final double? duration;
-
-  FileResult({
-    required this.path,
-    required this.reference,
-    required this.hypothesis,
-    required this.wer,
-    this.duration,
-  });
-}
-
-class BenchmarkResultsWidget extends StatelessWidget {
-  final Map<String, ModelMetrics> metrics;
-
-  const BenchmarkResultsWidget({
-    super.key,
-    required this.metrics,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Benchmark Results',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Table(
-                  columnWidths: const {
-                    0: FlexColumnWidth(2), // Model name
-                    1: FlexColumnWidth(1), // Files
-                    2: FlexColumnWidth(1), // WER
-                    3: FlexColumnWidth(1), // Accuracy
-                  },
-                  children: [
-                    TableRow(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                      ),
-                      children: [
-                        _buildHeaderCell(context, 'Model'),
-                        _buildHeaderCell(context, 'Files'),
-                        _buildHeaderCell(context, 'WER'),
-                        _buildHeaderCell(context, 'Accuracy'),
-                      ],
-                    ),
-                    for (final entry in metrics.entries)
-                      TableRow(
-                        children: [
-                          _buildCell(context, entry.key),
-                          _buildCell(context, entry.value.totalFiles.toString()),
-                          _buildCell(
-                            context, 
-                            '${entry.value.averageWer.toStringAsFixed(2)}%'
-                          ),
-                          _buildCell(
-                            context,
-                            '${(entry.value.wordAccuracy * 100).toStringAsFixed(2)}%'
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderCell(BuildContext context, String text) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          color: Theme.of(context).colorScheme.onPrimaryContainer,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCell(BuildContext context, String text) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Text(text),
-    );
-  }
+        'totalFiles': totalFiles,
+        'averageWer': averageWer,
+        'minWer': minWer,
+        'maxWer': maxWer,
+        'totalReferenceWords': totalReferenceWords,
+        'totalHypothesisWords': totalHypothesisWords,
+        'wordAccuracy': wordAccuracy,
+        'averageDecodeTime': averageDecodeTime,
+        'realTimeFactor': realTimeFactor,
+      };
 }

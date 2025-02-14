@@ -449,9 +449,6 @@ class BenchmarkContent extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 16),
-          Expanded(
-            child: BenchmarkResultsWidget(metrics: benchmarkResults!),
-          ),
         ],
       );
     }
