@@ -7,7 +7,9 @@ enum SherpaModelType {
   lstm,
   paraformer,
   telespeechCtc,
-  zipformer2;
+  zipformer2,
+  nemoTransducer,
+  ;
 
   static SherpaModelType fromString(String value) {
     switch (value) {
@@ -27,6 +29,8 @@ enum SherpaModelType {
         return telespeechCtc;
       case 'zipformer2':
         return zipformer2;
+      case 'nemo_transducer':
+        return nemoTransducer;
       default:
         throw ArgumentError('Unknown model type: $value');
     }
@@ -51,6 +55,8 @@ enum SherpaModelType {
         return 'telespeech-ctc';
       case zipformer2:
         return 'zipformer2';
+      case nemoTransducer:
+        return 'nemo_transducer';
     }
   }
 }

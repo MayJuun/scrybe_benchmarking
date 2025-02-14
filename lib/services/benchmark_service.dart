@@ -189,6 +189,7 @@ class BenchmarkService {
       case SherpaModelType.zipformer:
       case SherpaModelType.moonshine:
       case SherpaModelType.transducer:
+      case SherpaModelType.nemoTransducer:
         final offlineModelBundle =
             OfflineModelBundle.fromModel(asrModel, modelDir);
         offlineModelBundle.initPunctuation(punctuationModel, modelDir);
