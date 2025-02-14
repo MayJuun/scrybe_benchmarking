@@ -1,18 +1,15 @@
 // ignore_for_file: avoid_print
 
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:path/path.dart' as p;
-import 'package:scrybe/scrybe_benchmark.dart';
+import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
-import 'package:wav/wav.dart';
 
 class BenchmarkService {
   final String curatedDir;
   final String derivedDir;
   final List<AsrModel> asrModels;
   final List<PunctuationModel> punctuationModels;
-  PunctuationService? _punctuationService;
 
   BenchmarkService({
     required this.curatedDir,
@@ -85,7 +82,7 @@ class BenchmarkService {
         punctuationModel: punctuationModel,
       );
 
-      final asrRecognizer = modelBundle.asrRecognizer;
+      // final asrRecognizer = modelBundle.asrRecognizer;
       final topDir = Directory(curatedDir);
       final csvBuffer = StringBuffer();
       csvBuffer.writeln('chunkPath,refWords,hypWords,WER(%)');
@@ -111,7 +108,7 @@ class BenchmarkService {
           try {
             final result = await _processAudioFile(
               wavFile: wavFile,
-              asrRecognizer: asrRecognizer,
+              modelBundle: modelBundle,
               derivedDir: derivedDir,
               asrModel: asrModel,
               curatedDir: curatedDir,
@@ -147,7 +144,7 @@ class BenchmarkService {
           p.join(derivedDir, asrModel.name, 'WER_results.csv');
       await File(summaryCsvPath).writeAsString(csvBuffer.toString());
 
-      asrRecognizer.free();
+      modelBundle.free();
 
       // Final model update
       onProgressUpdate(BenchmarkProgress(
@@ -171,44 +168,25 @@ class BenchmarkService {
     }
   }
 
-  Future<SherpaModelBundle> _initSherpaModel({
+  Future<ModelBundle> _initSherpaModel({
     required AsrModel asrModel,
     required PunctuationModel? punctuationModel,
   }) async {
     sherpa.initBindings();
     final modelDir = p.join(Directory.current.path, 'assets', 'models');
 
-    final asrConfig = sherpa.OnlineRecognizerConfig(
-      model: sherpa.OnlineModelConfig(
-        transducer: sherpa.OnlineTransducerModelConfig(
-          encoder: p.join(modelDir, asrModel.encoder),
-          decoder: p.join(modelDir, asrModel.decoder),
-          joiner: p.join(modelDir, asrModel.joiner),
-        ),
-        tokens: p.join(modelDir, asrModel.tokens),
-        numThreads: 1,
-        modelType: asrModel.modelType,
-        debug: false,
-      ),
-    );
-    final asrRecognizer = sherpa.OnlineRecognizer(asrConfig);
-
-    if (punctuationModel != null) {
-      _punctuationService = PunctuationService(type: PunctuationType.online);
-      await _punctuationService!.initialize(
-        modelDir: p.join(modelDir, punctuationModel.name),
-      );
+    if (asrModel is WhisperModel) {
+      return WhisperModelBundle.fromModel(asrModel, modelDir);
+    } else {
+      final onlineModelBundle = OnlineModelBundle.fromModel(asrModel, modelDir);
+      onlineModelBundle.initPunctuation(punctuationModel, modelDir);
+      return onlineModelBundle;
     }
-
-    return SherpaModelBundle(
-      asrRecognizer: asrRecognizer,
-      punctuationRecognizer: null,
-    );
   }
 
   Future<ProcessingResult?> _processAudioFile({
     required File wavFile,
-    required sherpa.OnlineRecognizer asrRecognizer,
+    required ModelBundle modelBundle,
     required String derivedDir,
     required AsrModel asrModel,
     required String curatedDir,
@@ -231,28 +209,28 @@ class BenchmarkService {
 
     final referenceText = await _parseSrtFile(srtFile);
 
-    final recognizedText = await _decodeAudioFile(asrRecognizer, wavFile.path);
+    final recognizedText = await modelBundle.decodeAudioFile(wavFile.path);
 
     final cleanedText = recognizedText.toLowerCase().trim();
 
-    final finalText = await _applyPunctuation(cleanedText);
+    final finalText = await modelBundle.applyPunctuation(cleanedText);
 
     final wer = WerCalculator.computeWer(referenceText, finalText) * 100.0;
 
-// Get the relative directory from curated (e.g., "<group>/<pair-folder>")
+    // Get the relative directory from curated (e.g., "<group>/<pair-folder>")
     final relativeDir = p.relative(p.dirname(wavFile.path), from: curatedDir);
-// Get the base name of the chunk file (e.g., "myfile_part1")
+    // Get the base name of the chunk file (e.g., "myfile_part1")
     final fileBaseName = p.basenameWithoutExtension(wavFile.path);
-// Create an extra subdirectory for this particular chunk
+    // Create an extra subdirectory for this particular chunk
     final outSubDir =
         Directory(p.join(derivedDir, asrModel.name, relativeDir, fileBaseName));
     await outSubDir.create(recursive: true);
 
-// Save the generated SRT file
+    // Save the generated SRT file
     final outSrtFilePath = p.join(outSubDir.path, '$fileBaseName.srt');
     await File(outSrtFilePath).writeAsString(_generateSrt(finalText));
 
-// Save the comparison text file (original transcript vs generated)
+    // Save the comparison text file (original transcript vs generated)
     final outComparisonFilePath = p.join(outSubDir.path, '$fileBaseName.txt');
     await File(outComparisonFilePath).writeAsString(
       'Reference: $referenceText\n'
@@ -279,54 +257,6 @@ class BenchmarkService {
     return buffer.join(' ');
   }
 
-  Future<String> _decodeAudioFile(
-    sherpa.OnlineRecognizer recognizer,
-    String wavPath,
-  ) async {
-    print('Decoding file: $wavPath');
-    final stream = recognizer.createStream();
-    final samples = await _loadWavAsFloat32(wavPath);
-
-    print('Loaded ${samples.length} samples');
-
-    stream.acceptWaveform(samples: samples, sampleRate: 16000);
-
-    while (recognizer.isReady(stream)) {
-      recognizer.decode(stream);
-    }
-
-    final text = recognizer.getResult(stream).text;
-    stream.free();
-    return text;
-  }
-
-  Future<String> _applyPunctuation(String text) async {
-    if (_punctuationService == null) return text;
-    return _punctuationService!.addPunctuation(text);
-  }
-
-  Future<Float32List> _loadWavAsFloat32(String wavPath) async {
-    final fileBytes = await File(wavPath).readAsBytes();
-    final wavFile = Wav.read(fileBytes);
-
-    if (wavFile.channels.length != 1) {
-      print(
-          'Warning: file has ${wavFile.channels.length} channels, expected 1');
-    }
-    if (wavFile.samplesPerSecond != 16000) {
-      print('Warning: file has ${wavFile.samplesPerSecond} Hz, expected 16000');
-    }
-
-    final samplesFloat64 = wavFile.channels[0];
-    final float32 = Float32List(samplesFloat64.length);
-
-    for (int i = 0; i < samplesFloat64.length; i++) {
-      float32[i] = samplesFloat64[i].toDouble().clamp(-1.0, 1.0);
-    }
-
-    return float32;
-  }
-
   String _generateSrt(String text) {
     const duration = Duration(seconds: 30);
     final startStr = _formatDuration(Duration.zero);
@@ -342,20 +272,7 @@ class BenchmarkService {
     return '$hours:$minutes:$seconds,$milliseconds';
   }
 
-  void dispose() {
-    _punctuationService?.dispose();
-    _punctuationService = null;
-  }
-}
-
-class SherpaModelBundle {
-  final sherpa.OnlineRecognizer asrRecognizer;
-  final sherpa.OnlineRecognizer? punctuationRecognizer;
-
-  SherpaModelBundle({
-    required this.asrRecognizer,
-    this.punctuationRecognizer,
-  });
+  void dispose() {}
 }
 
 class ProcessingResult {

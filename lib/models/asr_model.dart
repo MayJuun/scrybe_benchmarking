@@ -1,37 +1,36 @@
-import 'package:path/path.dart' as p;
+class WhisperModel extends AsrModel {
+  WhisperModel(
+      {required super.name,
+      required super.encoder,
+      required super.decoder,
+      required super.joiner,
+      required super.tokens});
+}
 
 class AsrModel {
   const AsrModel({
     required this.name,
-    required String encoder,
-    required String decoder,
-    required String joiner,
-    required String tokens,
+    required this.encoder,
+    required this.decoder,
+    required this.joiner,
+    required this.tokens,
     this.modelType = 'zipformer2',
-  })  : _encoder = encoder,
-        _decoder = decoder,
-        _joiner = joiner,
-        _tokens = tokens;
+  });
 
   final String name;
-  final String _encoder;
-  final String _decoder;
-  final String _joiner;
-  final String _tokens;
+  final String encoder;
+  final String decoder;
+  final String joiner;
+  final String tokens;
   final String modelType;
-
-  String get encoder => p.join(name, _encoder);
-  String get decoder => p.join(name, _decoder);
-  String get joiner => p.join(name, _joiner);
-  String get tokens => p.join(name, _tokens);
 
   Map<String, dynamic> toJson() {
     return {
       'name': name,
-      'encoder': _encoder,
-      'decoder': _decoder,
-      'joiner': _joiner,
-      'tokens': _tokens,
+      'encoder': encoder,
+      'decoder': decoder,
+      'joiner': joiner,
+      'tokens': tokens,
       'modelType': modelType,
     };
   }
@@ -60,10 +59,10 @@ class AsrModel {
   }) {
     return AsrModel(
       name: name ?? this.name,
-      encoder: encoder ?? _encoder,
-      decoder: decoder ?? _decoder,
-      joiner: joiner ?? _joiner,
-      tokens: tokens ?? _tokens,
+      encoder: encoder ?? this.encoder,
+      decoder: decoder ?? this.decoder,
+      joiner: joiner ?? this.joiner,
+      tokens: tokens ?? this.tokens,
       modelType: modelType ?? this.modelType,
     );
   }
@@ -73,10 +72,10 @@ class AsrModel {
     if (identical(this, other)) return true;
     return other is AsrModel &&
         other.name == name &&
-        other._encoder == _encoder &&
-        other._decoder == _decoder &&
-        other._joiner == _joiner &&
-        other._tokens == _tokens &&
+        other.encoder == encoder &&
+        other.decoder == decoder &&
+        other.joiner == joiner &&
+        other.tokens == tokens &&
         other.modelType == modelType;
   }
 
@@ -84,10 +83,10 @@ class AsrModel {
   int get hashCode {
     return Object.hash(
       name,
-      _encoder,
-      _decoder,
-      _joiner,
-      _tokens,
+      encoder,
+      decoder,
+      joiner,
+      tokens,
       modelType,
     );
   }

@@ -1,25 +1,19 @@
-import 'package:path/path.dart' as p;
-
 class PunctuationModel {
   const PunctuationModel({
     required this.name,
-    required String model,
-    required String vocab,
-  })  : _model = model,
-        _vocab = vocab;
+    required this.model,
+    required this.vocab,
+  });
 
   final String name;
-  final String _model;
-  final String _vocab;
-
-  String get model => p.join(name, _model);
-  String get vocab => p.join(name, _vocab);
+  final String model;
+  final String vocab;
 
   Map<String, dynamic> toJson() {
     return {
       'name': name,
-      'model': _model,
-      'vocab': _vocab,
+      'model': model,
+      'vocab': vocab,
     };
   }
 
@@ -41,8 +35,8 @@ class PunctuationModel {
   }) {
     return PunctuationModel(
       name: name ?? this.name,
-      model: model ?? _model,
-      vocab: vocab ?? _vocab,
+      model: model ?? this.model,
+      vocab: vocab ?? this.vocab,
     );
   }
 
@@ -51,10 +45,10 @@ class PunctuationModel {
     if (identical(this, other)) return true;
     return other is PunctuationModel &&
         other.name == name &&
-        other._model == _model &&
-        other._vocab == _vocab;
+        other.model == model &&
+        other.vocab == vocab;
   }
 
   @override
-  int get hashCode => Object.hash(name, _model, _vocab);
+  int get hashCode => Object.hash(name, model, vocab);
 }
