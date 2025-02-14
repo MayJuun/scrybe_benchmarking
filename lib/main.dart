@@ -7,40 +7,147 @@ import 'screens/benchmark_screen.dart';
 
 // Define ASR models
 final asrModels = [
-  // Zipformer streaming model
+  AsrModel(
+    name: 'sherpa-onnx-moonshine-base-en-int8',
+    encoder: 'encode.int8.onnx',
+    decoder: '',
+    preprocessor: 'preprocess.onnx',
+    uncachedDecoder: 'uncached_decode.int8.onnx',
+    cachedDecoder: 'cached_decode.int8.onnx',
+    joiner: '',
+    tokens: 'tokens.txt',
+    modelType: SherpaModelType.moonshine,
+  ),
+  // AsrModel(
+  //   name: 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500',
+  //   encoder: 'encoder.onnx',
+  //   decoder: 'decoder.onnx',
+  //   preprocessor: '',
+  //   uncachedDecoder: '',
+  //   cachedDecoder: '',
+  //   joiner: 'joiner.onnx',
+  //   tokens: 'tokens.txt',
+  //   modelType: SherpaModelType.transducer,
+  // ),
   AsrModel(
     name: 'sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile',
-    encoder: 'encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+    encoder: 'encoder-epoch-99-avg-1-chunk-16-left-128.onnx',
     decoder: 'decoder-epoch-99-avg-1-chunk-16-left-128.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
     joiner: 'joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
     tokens: 'tokens.txt',
-    modelType: 'zipformer2',
+    modelType: SherpaModelType.zipformer2,
   ),
-  // Whisper tiny.en model - float32
-  // WhisperModel(
-  //   name: 'sherpa-onnx-whisper-tiny.en',
-  //   encoder: 'tiny.en-encoder.onnx',
-  //   decoder: 'tiny.en-decoder.onnx',
+  AsrModel(
+    name: 'sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile.int8',
+    encoder: 'encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+    decoder: 'decoder-epoch-99-avg-1-chunk-16-left-128.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: 'joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+    tokens: 'tokens.txt',
+    modelType: SherpaModelType.zipformer2,
+  ),
+  // AsrModel(
+  //   name: 'sherpa-onnx-whisper-medium.en',
+  //   encoder: 'medium.en-encoder.onnx',
+  //   decoder: 'medium.en-decoder.onnx',
+  //   preprocessor: '',
+  //   uncachedDecoder: '',
+  //   cachedDecoder: '',
   //   joiner: '',
-  //   tokens: 'tiny.en-tokens.txt',
+  //   tokens: 'medium.en-tokens.txt',
+  //   modelType: SherpaModelType.whisper,
   // ),
-  // // Whisper tiny.en model - int8 quantized
-  // WhisperModel(
-  //   name: 'sherpa-onnx-whisper-tiny.en.int8',
-  //   encoder: 'tiny.en-encoder.int8.onnx',
-  //   decoder: 'tiny.en-decoder.int8.onnx',
+  // AsrModel(
+  //   name: 'sherpa-onnx-whisper-medium.en.int8',
+  //   encoder: 'medium.en-encoder.int8.onnx',
+  //   decoder: 'medium.en-decoder.int8.onnx',
+  //   preprocessor: '',
+  //   uncachedDecoder: '',
+  //   cachedDecoder: '',
   //   joiner: '',
-  //   tokens: 'tiny.en-tokens.txt',
+  //   tokens: 'medium.en-tokens.txt',
+  //   modelType: SherpaModelType.whisper,
   // ),
+  AsrModel(
+    name: 'sherpa-onnx-whisper-small.en',
+    encoder: 'small.en-encoder.onnx',
+    decoder: 'small.en-decoder.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: '',
+    tokens: 'small.en-tokens.txt',
+    modelType: SherpaModelType.whisper,
+  ),
+  AsrModel(
+    name: 'sherpa-onnx-whisper-small.en.int8',
+    encoder: 'small.en-encoder.int8.onnx',
+    decoder: 'small.en-decoder.int8.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: '',
+    tokens: 'small.en-tokens.txt',
+    modelType: SherpaModelType.whisper,
+  ),
+  AsrModel(
+    name: 'sherpa-onnx-whisper-tiny.en',
+    encoder: 'tiny.en-encoder.onnx',
+    decoder: 'tiny.en-decoder.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: '',
+    tokens: 'tiny.en-tokens.txt',
+    modelType: SherpaModelType.whisper,
+  ),
+  AsrModel(
+    name: 'sherpa-onnx-whisper-tiny.en.int8',
+    encoder: 'tiny.en-encoder.int8.onnx',
+    decoder: 'tiny.en-decoder.int8.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: '',
+    tokens: 'tiny.en-tokens.txt',
+    modelType: SherpaModelType.whisper,
+  ),
+  AsrModel(
+    name: 'sherpa-onnx-zipformer-small-en-2023-06-26',
+    encoder: 'encoder-epoch-99-avg-1.onnx',
+    decoder: 'decoder-epoch-99-avg-1.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: 'joiner-epoch-99-avg-1.onnx',
+    tokens: 'tokens.txt',
+    modelType: SherpaModelType.zipformer,
+  ),
+  AsrModel(
+    name: 'sherpa-onnx-zipformer-small-en-2023-06-26.int8',
+    encoder: 'encoder-epoch-99-avg-1.int8.onnx',
+    decoder: 'decoder-epoch-99-avg-1.int8.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: 'joiner-epoch-99-avg-1.int8.onnx',
+    tokens: 'tokens.txt',
+    modelType: SherpaModelType.zipformer,
+  )
 ];
 
 // Define punctuation models
-final punctuationModels = [
-  PunctuationModel(
-    name: 'sherpa-onnx-online-punct-en-2024-08-06',
-    model: 'model.onnx',
-    vocab: 'bpe.vocab',
-  ),
+final punctuationModels = <PunctuationModel>[
+  // PunctuationModel(
+  //   name: 'sherpa-onnx-online-punct-en-2024-08-06',
+  //   model: 'model.onnx',
+  //   vocab: 'bpe.vocab',
+  // ),
 ];
 
 void main() {
@@ -177,24 +284,19 @@ class _SplashScreenState extends State<SplashScreen> {
         Directory(p.join(Directory.current.path, 'assets', 'models'));
 
     // Validate ASR model files
-    for (final model in asrModels) {
-      final files = [
-        p.join(modelDir.path, model.name, model.encoder),
-        p.join(modelDir.path, model.name, model.decoder),
-        p.join(modelDir.path, model.name, model.tokens),
-      ];
+    // for (final model in asrModels) {
+    //   final files = [
+    //     p.join(modelDir.path, model.name, model.encoder),
+    //     p.join(modelDir.path, model.name, model.decoder),
+    //     p.join(modelDir.path, model.name, model.tokens),
+    //   ];
 
-      // Add joiner for non-Whisper models
-      if (model is! WhisperModel) {
-        files.add(p.join(modelDir.path, model.name, model.joiner));
-      }
-
-      for (final file in files) {
-        if (!await File(file).exists()) {
-          throw Exception('Model file not found: $file');
-        }
-      }
-    }
+    //   for (final file in files) {
+    //     if (!await File(file).exists()) {
+    //       throw Exception('Model file not found: $file');
+    //     }
+    //   }
+    // }
 
     // Validate punctuation model files
     for (final model in punctuationModels) {

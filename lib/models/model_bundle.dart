@@ -41,8 +41,69 @@ class OfflineModelBundle extends ModelBundle {
     this.punctuation,
   });
 
+  factory OfflineModelBundle.fromModel(
+    AsrModel asrModel,
+    String modelDir,
+  ) {
+    final asrConfig = sherpa.OfflineRecognizerConfig(
+      model: sherpa.OfflineModelConfig(
+        transducer: asrModel.modelType == SherpaModelType.zipformer ||
+                asrModel.modelType == SherpaModelType.transducer
+            ? sherpa.OfflineTransducerModelConfig(
+                encoder: p.join(modelDir, asrModel.name, asrModel.encoder),
+                decoder: p.join(modelDir, asrModel.name, asrModel.decoder),
+                joiner: p.join(modelDir, asrModel.name, asrModel.joiner),
+              )
+            : sherpa.OfflineTransducerModelConfig(),
+        nemoCtc: asrModel.modelType == SherpaModelType.telespeechCtc
+            ? sherpa.OfflineNemoEncDecCtcModelConfig(
+                model: p.join(modelDir, asrModel.name, asrModel.name))
+            : sherpa.OfflineNemoEncDecCtcModelConfig(),
+        whisper: asrModel.modelType == SherpaModelType.whisper
+            ? sherpa.OfflineWhisperModelConfig(
+                encoder: p.join(modelDir, asrModel.name, asrModel.encoder),
+                decoder: p.join(modelDir, asrModel.name, asrModel.decoder),
+              )
+            : sherpa.OfflineWhisperModelConfig(),
+        moonshine: SherpaModelType.moonshine == asrModel.modelType
+            ? sherpa.OfflineMoonshineModelConfig(
+                preprocessor:
+                    p.join(modelDir, asrModel.name, asrModel.preprocessor),
+                encoder: p.join(modelDir, asrModel.name, asrModel.encoder),
+                uncachedDecoder:
+                    p.join(modelDir, asrModel.name, asrModel.uncachedDecoder),
+                cachedDecoder:
+                    p.join(modelDir, asrModel.name, asrModel.cachedDecoder),
+              )
+            : sherpa.OfflineMoonshineModelConfig(),
+        tokens: p.join(modelDir, asrModel.name, asrModel.tokens),
+        numThreads: 1,
+        modelType: asrModel.modelType.toString(),
+        debug: false,
+      ),
+    );
+    final asrRecognizer = sherpa.OfflineRecognizer(asrConfig);
+
+    return OfflineModelBundle(
+      recognizer: asrRecognizer,
+      punctuation: null,
+    );
+  }
+
   final sherpa.OfflineRecognizer recognizer;
-  final sherpa.OfflinePunctuation? punctuation;
+  sherpa.OfflinePunctuation? punctuation;
+
+  void initPunctuation(PunctuationModel? punctuationModel, String modelDir) {
+    if (punctuationModel != null) {
+      final dir = p.join(modelDir, punctuationModel.name);
+
+      final config = sherpa.OfflinePunctuationModelConfig(
+          ctTransformer: p.join(dir, punctuationModel.model));
+
+      final puncConfig = sherpa.OfflinePunctuationConfig(model: config);
+      punctuation = sherpa.OfflinePunctuation(config: puncConfig);
+    }
+  }
 
   @override
   void free() {
@@ -58,7 +119,7 @@ class OfflineModelBundle extends ModelBundle {
 
     final samples = await loadWavAsFloat32(audioPath);
 
-    print('Loaded ${samples.length} samples');
+    // print('Loaded ${samples.length} samples');
 
     stream.acceptWaveform(samples: samples, sampleRate: 16000);
 
@@ -67,55 +128,6 @@ class OfflineModelBundle extends ModelBundle {
     final text = recognizer.getResult(stream).text;
     stream.free();
     return punctuation?.addPunct(text.toLowerCase().trim()) ?? text;
-  }
-}
-
-class WhisperModelBundle extends ModelBundle {
-  WhisperModelBundle({required this.recognizer});
-
-  factory WhisperModelBundle.fromModel(AsrModel asrModel, String modelDir) {
-    final whisperConfig = sherpa.OfflineWhisperModelConfig(
-      encoder: p.join(modelDir, asrModel.name, asrModel.encoder),
-      decoder: p.join(modelDir, asrModel.name, asrModel.decoder),
-    );
-    final modelConfig = sherpa.OfflineModelConfig(
-      whisper: whisperConfig,
-      tokens: p.join(modelDir, asrModel.name, asrModel.tokens),
-      modelType: 'whisper',
-      debug: false,
-      numThreads: 1,
-    );
-
-    final config = sherpa.OfflineRecognizerConfig(model: modelConfig);
-    final recognizer = sherpa.OfflineRecognizer(config);
-    return WhisperModelBundle(recognizer: recognizer);
-  }
-
-  final sherpa.OfflineRecognizer recognizer;
-
-  @override
-  void free() {
-    recognizer.free();
-  }
-
-  @override
-  Future<String> decodeAudioFile(
-    String audioPath,
-  ) async {
-    print('Decoding file: $audioPath');
-    final stream = recognizer.createStream();
-
-    final samples = await loadWavAsFloat32(audioPath);
-
-    print('Loaded ${samples.length} samples');
-
-    stream.acceptWaveform(samples: samples, sampleRate: 16000);
-
-    recognizer.decode(stream);
-
-    final text = recognizer.getResult(stream).text;
-    stream.free();
-    return text;
   }
 }
 
@@ -131,14 +143,16 @@ class OnlineModelBundle extends ModelBundle {
   ) {
     final asrConfig = sherpa.OnlineRecognizerConfig(
       model: sherpa.OnlineModelConfig(
-        transducer: sherpa.OnlineTransducerModelConfig(
-          encoder: p.join(modelDir, asrModel.name, asrModel.encoder),
-          decoder: p.join(modelDir, asrModel.name, asrModel.decoder),
-          joiner: p.join(modelDir, asrModel.name, asrModel.joiner),
-        ),
+        transducer: asrModel.modelType == SherpaModelType.zipformer2
+            ? sherpa.OnlineTransducerModelConfig(
+                encoder: p.join(modelDir, asrModel.name, asrModel.encoder),
+                decoder: p.join(modelDir, asrModel.name, asrModel.decoder),
+                joiner: p.join(modelDir, asrModel.name, asrModel.joiner),
+              )
+            : sherpa.OnlineTransducerModelConfig(),
         tokens: p.join(modelDir, asrModel.name, asrModel.tokens),
         numThreads: 1,
-        modelType: asrModel.modelType,
+        modelType: asrModel.modelType.toString(),
         debug: false,
       ),
     );
@@ -189,7 +203,7 @@ class OnlineModelBundle extends ModelBundle {
 
     final samples = await loadWavAsFloat32(audioPath);
 
-    print('Loaded ${samples.length} samples');
+    // print('Loaded ${samples.length} samples');
 
     stream.acceptWaveform(samples: samples, sampleRate: 16000);
 

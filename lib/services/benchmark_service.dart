@@ -184,13 +184,24 @@ class BenchmarkService {
     sherpa.initBindings();
     final modelDir = p.join(Directory.current.path, 'assets', 'models');
 
-    // If it's a WhisperModel, we use the specialized bundle
-    if (asrModel is WhisperModel) {
-      return WhisperModelBundle.fromModel(asrModel, modelDir);
-    } else {
-      final onlineModelBundle = OnlineModelBundle.fromModel(asrModel, modelDir);
-      onlineModelBundle.initPunctuation(punctuationModel, modelDir);
-      return onlineModelBundle;
+    switch (asrModel.modelType) {
+      case SherpaModelType.whisper:
+      case SherpaModelType.zipformer:
+      case SherpaModelType.moonshine:
+      case SherpaModelType.transducer:
+        final offlineModelBundle =
+            OfflineModelBundle.fromModel(asrModel, modelDir);
+        offlineModelBundle.initPunctuation(punctuationModel, modelDir);
+        return offlineModelBundle;
+      case SherpaModelType.zipformer2:
+        final onlineModelBundle =
+            OnlineModelBundle.fromModel(asrModel, modelDir);
+        onlineModelBundle.initPunctuation(punctuationModel, modelDir);
+        return onlineModelBundle;
+      case SherpaModelType.lstm:
+      case SherpaModelType.paraformer:
+      case SherpaModelType.telespeechCtc:
+        throw UnimplementedError();
     }
   }
 
