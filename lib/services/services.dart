@@ -1,5 +1,4 @@
 export 'audio_converter.dart';
-export 'audio_preprocessor.dart';
 export 'benchmark_report_generator.dart';
 export 'benchmark_service.dart';
 export 'punctuation_service.dart';

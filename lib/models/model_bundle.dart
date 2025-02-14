@@ -131,32 +131,8 @@ class OfflineModelBundle extends ModelBundle {
     try {
       // Add preprocessing for NeMo models
       Float32List processedSamples;
-      if (sherpaModelType == SherpaModelType.nemoTransducer) {
-        print('Preprocessing for NeMo model...');
-        processedSamples = AudioPreprocessor.preprocessAudio(rawSamples);
-        print('Processed samples: length=${processedSamples.length}, '
-            'first few values=[${processedSamples.take(5).join(", ")}]');
 
-        // Debug check for dimensions
-        if (processedSamples.length % 80 != 0) {
-          print(
-              'WARNING: Processed samples length (${processedSamples.length}) is not divisible by 80');
-        }
-
-        // Reshape if needed - the model expects [batch_size, time_steps, features]
-        // where features should be 80
-        final timeSteps = processedSamples.length ~/ 80;
-        final reshapedSamples = Float32List(timeSteps * 80);
-        for (var i = 0; i < timeSteps; i++) {
-          for (var j = 0; j < 80; j++) {
-            reshapedSamples[i * 80 + j] = processedSamples[i + j * timeSteps];
-          }
-        }
-        processedSamples = reshapedSamples;
-        print('Reshaped samples to time_steps=$timeSteps, features=80');
-      } else {
-        processedSamples = rawSamples;
-      }
+      processedSamples = rawSamples;
 
       print('Accepting waveform into stream...');
       stream.acceptWaveform(samples: processedSamples, sampleRate: 16000);
