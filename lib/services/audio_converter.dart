@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
-import '../models/benchmark_progress.dart';
+import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
 class AudioConverter {
   AudioConverter(this.rawFile, this.outputBasePath, [this.chunkSize = 30]);
@@ -9,6 +9,92 @@ class AudioConverter {
   final String outputBasePath;
   final int chunkSize;
 
+  Future<ConversionResult> convertWithSegments({
+    required List<SubtitleSegment> segments,
+    Function(BenchmarkProgress)? onProgressUpdate,
+  }) async {
+    try {
+      final duration = await _getAudioDuration(rawFile);
+      if (duration == null) {
+        final error =
+            'Unable to get duration for $rawFile. Make sure ffprobe is installed.';
+        _updateProgress(onProgressUpdate,
+            currentFile: rawFile,
+            processedFiles: 0,
+            totalFiles: segments.length,
+            error: error);
+        return ConversionResult(success: false, error: error);
+      }
+
+      final baseName = p.basenameWithoutExtension(rawFile);
+      final chunksDir = p.join(outputBasePath, baseName);
+      await Directory(chunksDir).create(recursive: true);
+
+      int processedSegments = 0;
+      for (int i = 0; i < segments.length; i++) {
+        final segment = segments[i];
+        final outFile = p.join(chunksDir, '${baseName}_part${i + 1}.wav');
+
+        final ffmpegArgs = [
+          '-y',
+          '-i',
+          rawFile,
+          '-ss',
+          '${segment.start}',
+          '-t',
+          '${segment.end - segment.start}',
+          '-acodec',
+          'pcm_s16le',
+          '-ar',
+          '16000',
+          '-ac',
+          '1',
+          '-filter:a',
+          'volume=0.9',
+          outFile,
+        ];
+
+        _updateProgress(
+          onProgressUpdate,
+          currentFile: 'Converting segment ${i + 1}/${segments.length}',
+          processedFiles: processedSegments,
+          totalFiles: segments.length,
+        );
+
+        final result = await Process.run('ffmpeg', ffmpegArgs);
+
+        if (result.exitCode != 0) {
+          print('Error processing segment: ${result.stderr}');
+          continue;
+        }
+
+        processedSegments++;
+        _updateProgress(
+          onProgressUpdate,
+          currentFile:
+              'Processed segment $processedSegments/${segments.length}',
+          processedFiles: processedSegments,
+          totalFiles: segments.length,
+        );
+      }
+
+      return ConversionResult(
+        success: true,
+        duration: duration,
+        outputDirectory: chunksDir,
+        numChunks: processedSegments,
+      );
+    } catch (e, stack) {
+      print('Error during segment conversion: $e\n$stack');
+      _updateProgress(onProgressUpdate,
+          currentFile: 'Error',
+          processedFiles: 0,
+          totalFiles: segments.length,
+          error: e.toString());
+      return ConversionResult(success: false, error: e.toString());
+    }
+  }
+
   Future<ConversionResult> convert({
     Function(BenchmarkProgress)? onProgressUpdate,
   }) async {
@@ -16,7 +102,8 @@ class AudioConverter {
       // 1) Get the total audio duration using ffprobe
       final duration = await _getAudioDuration(rawFile);
       if (duration == null) {
-        final error = 'Unable to get duration for $rawFile. Make sure ffprobe is installed.';
+        final error =
+            'Unable to get duration for $rawFile. Make sure ffprobe is installed.';
         _updateProgress(onProgressUpdate, error: error);
         return ConversionResult(success: false, error: error);
       }
@@ -43,7 +130,8 @@ class AudioConverter {
       int index = 1;
       while (start < duration) {
         final end = start + chunkSize;
-        final actualChunkDuration = (end <= duration) ? chunkSize : (duration - start);
+        final actualChunkDuration =
+            (end <= duration) ? chunkSize : (duration - start);
         if (actualChunkDuration <= 0) break;
 
         final outFile = p.join(chunksDir, '${baseName}_part$index.wav');
@@ -57,7 +145,8 @@ class AudioConverter {
           '-acodec', 'pcm_s16le', // 16-bit PCM encoding
           '-ar', '16000', // 16kHz sample rate
           '-ac', '1', // mono channel
-          '-filter:a', 'volume=0.9', // Optional: prevent clipping during resampling
+          '-filter:a',
+          'volume=0.9', // Optional: prevent clipping during resampling
           outFile,
         ];
 
@@ -111,11 +200,12 @@ class AudioConverter {
     Map<String, dynamic>? additionalInfo,
   }) {
     if (onProgressUpdate != null) {
+      // Fixed by providing all required parameters
       onProgressUpdate(BenchmarkProgress(
         currentModel: p.basename(rawFile),
-        currentFile: currentFile,
-        processedFiles: processedFiles ?? 0,
-        totalFiles: totalFiles ?? 0,
+        currentFile: currentFile, // This was already provided
+        processedFiles: processedFiles ?? 0, // Default if null
+        totalFiles: totalFiles ?? 0, // Default if null
         error: error,
         phase: 'converting',
         additionalInfo: additionalInfo,
@@ -127,9 +217,12 @@ class AudioConverter {
   /// Returns null if parsing fails or ffprobe is not installed.
   Future<double?> _getAudioDuration(String rawFile) async {
     final result = await Process.run('ffprobe', [
-      '-v', 'error',
-      '-show_entries', 'format=duration',
-      '-of', 'default=noprint_wrappers=1:nokey=1',
+      '-v',
+      'error',
+      '-show_entries',
+      'format=duration',
+      '-of',
+      'default=noprint_wrappers=1:nokey=1',
       rawFile,
     ]);
 

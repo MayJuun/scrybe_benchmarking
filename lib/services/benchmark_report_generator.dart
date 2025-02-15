@@ -185,6 +185,7 @@ class BenchmarkReportGenerator {
       ];
       mdReport.writeln('| ${row.join(' | ')} |');
     });
+    mdReport.writeln('\n');
 
     final mdPath = p.join(reportDir.path, 'benchmark_report.md');
     await File(mdPath).writeAsString(mdReport.toString());
