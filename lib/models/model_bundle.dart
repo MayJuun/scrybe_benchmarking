@@ -53,26 +53,35 @@ class OfflineModelBundle extends ModelBundle {
   ) {
     final asrConfig = sherpa.OfflineRecognizerConfig(
       model: sherpa.OfflineModelConfig(
-        transducer: asrModel.modelType == SherpaModelType.zipformer ||
+        // Offline transducer
+        transducer: (asrModel.modelType == SherpaModelType.zipformer ||
                 asrModel.modelType == SherpaModelType.transducer ||
-                asrModel.modelType == SherpaModelType.nemoTransducer
+                asrModel.modelType == SherpaModelType.nemoTransducer)
             ? sherpa.OfflineTransducerModelConfig(
                 encoder: p.join(modelDir, asrModel.name, asrModel.encoder),
                 decoder: p.join(modelDir, asrModel.name, asrModel.decoder),
                 joiner: p.join(modelDir, asrModel.name, asrModel.joiner),
               )
             : sherpa.OfflineTransducerModelConfig(),
-        nemoCtc: asrModel.modelType == SherpaModelType.telespeechCtc
+
+        // Offline Nemo CTC
+        nemoCtc: (asrModel.modelType == SherpaModelType.nemoCtcOffline ||
+                asrModel.modelType == SherpaModelType.telespeechCtc)
             ? sherpa.OfflineNemoEncDecCtcModelConfig(
-                model: p.join(modelDir, asrModel.name, asrModel.encoder))
+                model: p.join(modelDir, asrModel.name, asrModel.encoder),
+              )
             : sherpa.OfflineNemoEncDecCtcModelConfig(),
-        whisper: asrModel.modelType == SherpaModelType.whisper
+
+        // Offline Whisper
+        whisper: (asrModel.modelType == SherpaModelType.whisper)
             ? sherpa.OfflineWhisperModelConfig(
                 encoder: p.join(modelDir, asrModel.name, asrModel.encoder),
                 decoder: p.join(modelDir, asrModel.name, asrModel.decoder),
               )
             : sherpa.OfflineWhisperModelConfig(),
-        moonshine: SherpaModelType.moonshine == asrModel.modelType
+
+        // Offline Moonshine
+        moonshine: (asrModel.modelType == SherpaModelType.moonshine)
             ? sherpa.OfflineMoonshineModelConfig(
                 preprocessor:
                     p.join(modelDir, asrModel.name, asrModel.preprocessor),
@@ -83,12 +92,14 @@ class OfflineModelBundle extends ModelBundle {
                     p.join(modelDir, asrModel.name, asrModel.cachedDecoder),
               )
             : sherpa.OfflineMoonshineModelConfig(),
+
         tokens: p.join(modelDir, asrModel.name, asrModel.tokens),
         numThreads: 1,
         modelType: asrModel.modelType.toString(),
         debug: false,
       ),
     );
+
     final asrRecognizer = sherpa.OfflineRecognizer(asrConfig);
 
     return OfflineModelBundle(
@@ -160,22 +171,31 @@ class OnlineModelBundle extends ModelBundle {
   ) {
     final asrConfig = sherpa.OnlineRecognizerConfig(
       model: sherpa.OnlineModelConfig(
-        transducer: asrModel.modelType == SherpaModelType.zipformer2
+        // For streaming transducer (zipformer2, conformer, lstm, etc.)
+        transducer: (asrModel.modelType == SherpaModelType.zipformer2 ||
+                asrModel.modelType == SherpaModelType.conformer ||
+                asrModel.modelType == SherpaModelType.lstm)
             ? sherpa.OnlineTransducerModelConfig(
                 encoder: p.join(modelDir, asrModel.name, asrModel.encoder),
                 decoder: p.join(modelDir, asrModel.name, asrModel.decoder),
                 joiner: p.join(modelDir, asrModel.name, asrModel.joiner),
               )
             : sherpa.OnlineTransducerModelConfig(),
-        zipformer2Ctc: asrModel.modelType == SherpaModelType.zipformer2Ctc
+
+        // For streaming Zipformer2 CTC
+        zipformer2Ctc: (asrModel.modelType == SherpaModelType.zipformer2Ctc)
             ? sherpa.OnlineZipformer2CtcModelConfig(
                 model: p.join(modelDir, asrModel.name, asrModel.encoder),
               )
             : sherpa.OnlineZipformer2CtcModelConfig(),
-        // neMoCtc: asrModel.modelType == SherpaModelType.nemoCtc
-        //     ? sherpa.OnlineNeMoCtcModelConfig(
-        //         model: p.join(modelDir, asrModel.name, asrModel.encoder))
-        //     : sherpa.OnlineNeMoCtcModelConfig(),
+
+        // Nemo CTC for streaming
+        neMoCtc: (asrModel.modelType == SherpaModelType.nemoCtcOnline)
+            ? sherpa.OnlineNeMoCtcModelConfig(
+                model: p.join(modelDir, asrModel.name, asrModel.encoder),
+              )
+            : sherpa.OnlineNeMoCtcModelConfig(),
+
         tokens: p.join(modelDir, asrModel.name, asrModel.tokens),
         numThreads: 1,
         modelType: asrModel.modelType.toString(),

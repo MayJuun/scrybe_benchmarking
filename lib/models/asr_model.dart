@@ -1,26 +1,33 @@
 /// The recognized model types that your code handles.
 enum SherpaModelType {
-  // offline/online Transducer
+  // Offline Transducer
   transducer, // -> 'transducer'
   nemoTransducer, // -> 'nemo_transducer'
 
-  // offline CTC
-  nemoCtc, // -> 'nemo_ctc'
+  // Offline CTC
   tdnn, // -> 'tdnn'
-  zipformer2Ctc, // -> 'zipformer2_ctc'
   wenetCtc, // -> 'wenet_ctc'
   telespeechCtc, // -> 'telespeech_ctc'
 
-  // others
+  // Nemo CTC, split into offline vs. online
+  nemoCtcOffline, // -> 'nemo_ctc'
+  nemoCtcOnline, // -> 'nemo_ctc'
+
+  // Zipformer CTC
+  zipformer2Ctc, // -> 'zipformer2_ctc'
+
+  // Zipformer Transducer
+  zipformer, // -> 'zipformer'   (offline)
+  zipformer2, // -> 'zipformer2'  (online streaming)
+
+  // Others
   moonshine, // -> 'moonshine'
   paraformer, // -> 'paraformer'
   whisper, // -> 'whisper'
 
-  // streaming transducer
-  conformer, // -> 'conformer' (if you like)
+  // Additional streaming transducer types
+  conformer, // -> 'conformer'
   lstm, // -> 'lstm'
-  zipformer, // -> 'zipformer'
-  zipformer2, // -> 'zipformer2'
   ;
 
   @override
@@ -30,16 +37,26 @@ enum SherpaModelType {
         return 'transducer';
       case nemoTransducer:
         return 'nemo_transducer';
-      case nemoCtc:
-        return 'nemo_ctc';
       case tdnn:
         return 'tdnn';
-      case zipformer2Ctc:
-        return 'zipformer2_ctc';
       case wenetCtc:
         return 'wenet_ctc';
       case telespeechCtc:
         return 'telespeech_ctc';
+
+      // Nemo CTC, offline and online both map to "nemo_ctc"
+      case nemoCtcOffline:
+        return 'nemo_ctc';
+      case nemoCtcOnline:
+        return 'nemo_ctc';
+
+      case zipformer2Ctc:
+        return 'zipformer2_ctc';
+      case zipformer:
+        return 'zipformer';
+      case zipformer2:
+        return 'zipformer2';
+
       case moonshine:
         return 'moonshine';
       case paraformer:
@@ -47,15 +64,10 @@ enum SherpaModelType {
       case whisper:
         return 'whisper';
 
-      // Streaming transducer
       case conformer:
         return 'conformer';
       case lstm:
         return 'lstm';
-      case zipformer:
-        return 'zipformer';
-      case zipformer2:
-        return 'zipformer2';
     }
   }
 
@@ -65,16 +77,25 @@ enum SherpaModelType {
         return SherpaModelType.transducer;
       case 'nemo_transducer':
         return SherpaModelType.nemoTransducer;
-      case 'nemo_ctc':
-        return SherpaModelType.nemoCtc;
       case 'tdnn':
         return SherpaModelType.tdnn;
-      case 'zipformer2_ctc':
-        return SherpaModelType.zipformer2Ctc;
       case 'wenet_ctc':
         return SherpaModelType.wenetCtc;
       case 'telespeech_ctc':
         return SherpaModelType.telespeechCtc;
+
+      case 'nemo_ctc':
+        // By default, treat 'nemo_ctc' as offline.
+        // If needed, you can decide a different approach here.
+        return SherpaModelType.nemoCtcOffline;
+
+      case 'zipformer2_ctc':
+        return SherpaModelType.zipformer2Ctc;
+      case 'zipformer':
+        return SherpaModelType.zipformer;
+      case 'zipformer2':
+        return SherpaModelType.zipformer2;
+
       case 'moonshine':
         return SherpaModelType.moonshine;
       case 'paraformer':
@@ -82,15 +103,10 @@ enum SherpaModelType {
       case 'whisper':
         return SherpaModelType.whisper;
 
-      // Streaming transducer
       case 'conformer':
         return SherpaModelType.conformer;
       case 'lstm':
         return SherpaModelType.lstm;
-      case 'zipformer':
-        return SherpaModelType.zipformer;
-      case 'zipformer2':
-        return SherpaModelType.zipformer2;
       default:
         throw ArgumentError('Unknown SherpaModelType: $value');
     }

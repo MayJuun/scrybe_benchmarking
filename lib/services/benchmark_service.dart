@@ -185,33 +185,34 @@ class BenchmarkService {
     print('Model directory: ${asrModel.name}');
 
     switch (asrModel.modelType) {
-      // Offline
+      // === OFFLINE ===
       case SherpaModelType.whisper:
-      case SherpaModelType.zipformer: // older offline zipformer
+      case SherpaModelType.zipformer: // offline Zipformer transducer
+      case SherpaModelType.transducer: // offline generic transducer
       case SherpaModelType.moonshine:
-      case SherpaModelType.transducer:
       case SherpaModelType.nemoTransducer:
+      case SherpaModelType.nemoCtcOffline: // offline Nemo CTC
       case SherpaModelType.telespeechCtc:
+      case SherpaModelType.tdnn:
+      case SherpaModelType.wenetCtc:
         final offlineModelBundle =
             OfflineModelBundle.fromModel(asrModel, modelDir);
         offlineModelBundle.initPunctuation(punctuationModel, modelDir);
         return offlineModelBundle;
 
-      // Online
-      case SherpaModelType.zipformer2: // streaming zipformer (transducer)
-      case SherpaModelType.nemoCtc: // streaming Nemo CTC
+      // === ONLINE (STREAMING) ===
+      case SherpaModelType.zipformer2: // streaming Zipformer transducer
       case SherpaModelType.zipformer2Ctc: // streaming Zipformer2 CTC
+      case SherpaModelType.conformer:
+      case SherpaModelType.lstm:
+      case SherpaModelType.nemoCtcOnline: // streaming Nemo CTC
         final onlineModelBundle =
             OnlineModelBundle.fromModel(asrModel, modelDir);
         onlineModelBundle.initPunctuation(punctuationModel, modelDir);
         return onlineModelBundle;
 
-      // Not implemented
-      case SherpaModelType.lstm:
+      // === UNIMPLEMENTED ===
       case SherpaModelType.paraformer:
-      case SherpaModelType.tdnn:
-      case SherpaModelType.wenetCtc:
-      case SherpaModelType.conformer:
         throw UnimplementedError();
     }
   }
