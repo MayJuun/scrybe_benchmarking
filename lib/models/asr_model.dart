@@ -1,62 +1,98 @@
 /// The recognized model types that your code handles.
 enum SherpaModelType {
-  whisper,
-  zipformer,
-  transducer,
-  moonshine,
-  lstm,
-  paraformer,
-  telespeechCtc,
-  zipformer2,
-  nemoTransducer,
-  ;
+  // offline/online Transducer
+  transducer, // -> 'transducer'
+  nemoTransducer, // -> 'nemo_transducer'
 
-  static SherpaModelType fromString(String value) {
-    switch (value) {
-      case 'whisper':
-        return whisper;
-      case 'zipformer':
-        return zipformer;
-      case 'transducer':
-        return transducer;
-      case 'moonshine':
-        return moonshine;
-      case 'lstm':
-        return lstm;
-      case 'paraformer':
-        return paraformer;
-      case 'telespeech-ctc':
-        return telespeechCtc;
-      case 'zipformer2':
-        return zipformer2;
-      case 'nemo_transducer':
-        return nemoTransducer;
-      default:
-        throw ArgumentError('Unknown model type: $value');
-    }
-  }
+  // offline CTC
+  nemoCtc, // -> 'nemo_ctc'
+  tdnn, // -> 'tdnn'
+  zipformer2Ctc, // -> 'zipformer2_ctc'
+  wenetCtc, // -> 'wenet_ctc'
+  telespeechCtc, // -> 'telespeech_ctc'
+
+  // others
+  moonshine, // -> 'moonshine'
+  paraformer, // -> 'paraformer'
+  whisper, // -> 'whisper'
+
+  // streaming transducer
+  conformer, // -> 'conformer' (if you like)
+  lstm, // -> 'lstm'
+  zipformer, // -> 'zipformer'
+  zipformer2, // -> 'zipformer2'
+  ;
 
   @override
   String toString() {
     switch (this) {
-      case whisper:
-        return 'whisper';
-      case zipformer:
-        return 'zipformer';
       case transducer:
         return 'transducer';
-      case moonshine:
-        return 'moonshine';
-      case lstm:
-        return 'lstm';
-      case paraformer:
-        return 'paraformer';
-      case telespeechCtc:
-        return 'telespeech-ctc';
-      case zipformer2:
-        return 'zipformer2';
       case nemoTransducer:
         return 'nemo_transducer';
+      case nemoCtc:
+        return 'nemo_ctc';
+      case tdnn:
+        return 'tdnn';
+      case zipformer2Ctc:
+        return 'zipformer2_ctc';
+      case wenetCtc:
+        return 'wenet_ctc';
+      case telespeechCtc:
+        return 'telespeech_ctc';
+      case moonshine:
+        return 'moonshine';
+      case paraformer:
+        return 'paraformer';
+      case whisper:
+        return 'whisper';
+
+      // Streaming transducer
+      case conformer:
+        return 'conformer';
+      case lstm:
+        return 'lstm';
+      case zipformer:
+        return 'zipformer';
+      case zipformer2:
+        return 'zipformer2';
+    }
+  }
+
+  static SherpaModelType fromString(String value) {
+    switch (value) {
+      case 'transducer':
+        return SherpaModelType.transducer;
+      case 'nemo_transducer':
+        return SherpaModelType.nemoTransducer;
+      case 'nemo_ctc':
+        return SherpaModelType.nemoCtc;
+      case 'tdnn':
+        return SherpaModelType.tdnn;
+      case 'zipformer2_ctc':
+        return SherpaModelType.zipformer2Ctc;
+      case 'wenet_ctc':
+        return SherpaModelType.wenetCtc;
+      case 'telespeech_ctc':
+        return SherpaModelType.telespeechCtc;
+      case 'moonshine':
+        return SherpaModelType.moonshine;
+      case 'paraformer':
+        return SherpaModelType.paraformer;
+      case 'whisper':
+        return SherpaModelType.whisper;
+
+      // Streaming transducer
+      case 'conformer':
+        return SherpaModelType.conformer;
+      case 'lstm':
+        return SherpaModelType.lstm;
+      case 'zipformer':
+        return SherpaModelType.zipformer;
+      case 'zipformer2':
+        return SherpaModelType.zipformer2;
+      default:
+        throw ArgumentError('Unknown SherpaModelType: $value');
     }
   }
 }

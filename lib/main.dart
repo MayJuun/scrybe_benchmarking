@@ -5,7 +5,6 @@ import 'models/asr_model.dart';
 import 'models/punctuation_model.dart';
 import 'screens/benchmark_screen.dart';
 
-// Define ASR models
 final asrModels = [
   AsrModel(
     name: 'sherpa-onnx-moonshine-base-en-int8',
@@ -27,7 +26,7 @@ final asrModels = [
     cachedDecoder: '',
     joiner: 'joiner.onnx',
     tokens: 'tokens.txt',
-    modelType: SherpaModelType.nemoTransducer,
+    modelType: SherpaModelType.nemoTransducer, // offline Nemo transducer
   ),
   AsrModel(
     name: 'sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile',
@@ -38,7 +37,7 @@ final asrModels = [
     cachedDecoder: '',
     joiner: 'joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
     tokens: 'tokens.txt',
-    modelType: SherpaModelType.zipformer2,
+    modelType: SherpaModelType.zipformer2, // streaming Zipformer v2 transducer
   ),
   AsrModel(
     name: 'sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile.int8',
@@ -51,28 +50,28 @@ final asrModels = [
     tokens: 'tokens.txt',
     modelType: SherpaModelType.zipformer2,
   ),
-  // AsrModel(
-  //   name: 'sherpa-onnx-whisper-medium.en',
-  //   encoder: 'medium.en-encoder.onnx',
-  //   decoder: 'medium.en-decoder.onnx',
-  //   preprocessor: '',
-  //   uncachedDecoder: '',
-  //   cachedDecoder: '',
-  //   joiner: '',
-  //   tokens: 'medium.en-tokens.txt',
-  //   modelType: SherpaModelType.whisper,
-  // ),
-  // AsrModel(
-  //   name: 'sherpa-onnx-whisper-medium.en.int8',
-  //   encoder: 'medium.en-encoder.int8.onnx',
-  //   decoder: 'medium.en-decoder.int8.onnx',
-  //   preprocessor: '',
-  //   uncachedDecoder: '',
-  //   cachedDecoder: '',
-  //   joiner: '',
-  //   tokens: 'medium.en-tokens.txt',
-  //   modelType: SherpaModelType.whisper,
-  // ),
+  AsrModel(
+    name: 'sherpa-onnx-whisper-medium.en',
+    encoder: 'medium.en-encoder.onnx',
+    decoder: 'medium.en-decoder.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: '',
+    tokens: 'medium.en-tokens.txt',
+    modelType: SherpaModelType.whisper,
+  ),
+  AsrModel(
+    name: 'sherpa-onnx-whisper-medium.en.int8',
+    encoder: 'medium.en-encoder.int8.onnx',
+    decoder: 'medium.en-decoder.int8.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: '',
+    tokens: 'medium.en-tokens.txt',
+    modelType: SherpaModelType.whisper,
+  ),
   AsrModel(
     name: 'sherpa-onnx-whisper-small.en',
     encoder: 'small.en-encoder.onnx',
@@ -126,7 +125,7 @@ final asrModels = [
     cachedDecoder: '',
     joiner: 'joiner-epoch-99-avg-1.onnx',
     tokens: 'tokens.txt',
-    modelType: SherpaModelType.zipformer,
+    modelType: SherpaModelType.transducer,
   ),
   AsrModel(
     name: 'sherpa-onnx-zipformer-small-en-2023-06-26.int8',
@@ -138,7 +137,95 @@ final asrModels = [
     joiner: 'joiner-epoch-99-avg-1.int8.onnx',
     tokens: 'tokens.txt',
     modelType: SherpaModelType.zipformer,
-  )
+  ),
+  AsrModel(
+    name: 'sherpa-onnx-nemo-ctc-en-conformer-large',
+    encoder: 'model.int8.onnx',
+    decoder: '',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: '',
+    tokens: 'tokens.txt',
+    modelType: SherpaModelType.telespeechCtc,
+  ),
+  AsrModel(
+    name: 'sherpa-onnx-nemo-ctc-en-conformer-small',
+    encoder: 'model.int8.onnx',
+    decoder: '',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: '',
+    tokens: 'tokens.txt',
+    modelType: SherpaModelType.telespeechCtc,
+  ),
+  // AsrModel(
+  //   name: 'sherpa-onnx-nemo-streaming-fast-conformer-ctc-en-80ms',
+  //   encoder: 'model.onnx',
+  //   decoder: '',
+  //   preprocessor: '',
+  //   uncachedDecoder: '',
+  //   cachedDecoder: '',
+  //   joiner: '',
+  //   tokens: 'tokens.txt',
+  //   modelType: SherpaModelType.zipformer2Ctc,
+  // ),
+  AsrModel(
+    name: 'sherpa-onnx-streaming-zipformer-ctc-small-2024-03-18',
+    encoder: 'ctc-epoch-30-avg-3-chunk-16-left-128.onnx',
+    decoder: '',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: '',
+    tokens: 'tokens.txt',
+    modelType: SherpaModelType.zipformer2Ctc,
+  ),
+  AsrModel(
+    name: 'sherpa-onnx-streaming-zipformer-en-2023-06-26',
+    encoder: 'encoder-epoch-99-avg-1-chunk-16-left-128.onnx',
+    decoder: 'decoder-epoch-99-avg-1-chunk-16-left-128.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: 'joiner-epoch-99-avg-1-chunk-16-left-128.onnx',
+    tokens: 'tokens.txt',
+    modelType: SherpaModelType.zipformer2, // streaming
+  ),
+  AsrModel(
+    name: 'sherpa-onnx-streaming-zipformer-en-2023-06-26.int8',
+    encoder: 'encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+    decoder: 'decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: 'joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+    tokens: 'tokens.txt',
+    modelType: SherpaModelType.zipformer2,
+  ),
+  AsrModel(
+    name: 'sherpa-onnx-zipformer-large-en-2023-06-26',
+    encoder: 'encoder-epoch-99-avg-1.onnx',
+    decoder: 'decoder-epoch-99-avg-1.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: 'joiner-epoch-99-avg-1.onnx',
+    tokens: 'tokens.txt',
+    modelType: SherpaModelType.zipformer, // offline large
+  ),
+  AsrModel(
+    name: 'sherpa-onnx-zipformer-large-en-2023-06-26.int8',
+    encoder: 'encoder-epoch-99-avg-1.int8.onnx',
+    decoder: 'decoder-epoch-99-avg-1.int8.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: 'joiner-epoch-99-avg-1.int8.onnx',
+    tokens: 'tokens.txt',
+    modelType: SherpaModelType.zipformer,
+  ),
 ];
 
 // Define punctuation models
@@ -282,21 +369,6 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _validateModelFiles() async {
     final modelDir =
         Directory(p.join(Directory.current.path, 'assets', 'models'));
-
-    // Validate ASR model files
-    // for (final model in asrModels) {
-    //   final files = [
-    //     p.join(modelDir.path, model.name, model.encoder),
-    //     p.join(modelDir.path, model.name, model.decoder),
-    //     p.join(modelDir.path, model.name, model.tokens),
-    //   ];
-
-    //   for (final file in files) {
-    //     if (!await File(file).exists()) {
-    //       throw Exception('Model file not found: $file');
-    //     }
-    //   }
-    // }
 
     // Validate punctuation model files
     for (final model in punctuationModels) {

@@ -79,7 +79,6 @@ class BenchmarkService {
     required Function(BenchmarkProgress) onProgressUpdate,
   }) async {
     try {
-      print('Initializing Sherpa Onnx model ${asrModel.name}');
       final modelBundle = await _initSherpaModel(
         asrModel: asrModel,
         punctuationModel: punctuationModel,
@@ -183,25 +182,36 @@ class BenchmarkService {
   }) async {
     sherpa.initBindings();
     final modelDir = p.join(Directory.current.path, 'assets', 'models');
+    print('Model directory: ${asrModel.name}');
 
     switch (asrModel.modelType) {
+      // Offline
       case SherpaModelType.whisper:
-      case SherpaModelType.zipformer:
+      case SherpaModelType.zipformer: // older offline zipformer
       case SherpaModelType.moonshine:
       case SherpaModelType.transducer:
       case SherpaModelType.nemoTransducer:
+      case SherpaModelType.telespeechCtc:
         final offlineModelBundle =
             OfflineModelBundle.fromModel(asrModel, modelDir);
         offlineModelBundle.initPunctuation(punctuationModel, modelDir);
         return offlineModelBundle;
-      case SherpaModelType.zipformer2:
+
+      // Online
+      case SherpaModelType.zipformer2: // streaming zipformer (transducer)
+      case SherpaModelType.nemoCtc: // streaming Nemo CTC
+      case SherpaModelType.zipformer2Ctc: // streaming Zipformer2 CTC
         final onlineModelBundle =
             OnlineModelBundle.fromModel(asrModel, modelDir);
         onlineModelBundle.initPunctuation(punctuationModel, modelDir);
         return onlineModelBundle;
+
+      // Not implemented
       case SherpaModelType.lstm:
       case SherpaModelType.paraformer:
-      case SherpaModelType.telespeechCtc:
+      case SherpaModelType.tdnn:
+      case SherpaModelType.wenetCtc:
+      case SherpaModelType.conformer:
         throw UnimplementedError();
     }
   }

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
+import 'package:scrybe_benchmarking/services/asr_preprocessor.dart';
 
 /// Main screen for running the Sherpa ONNX benchmarking.
 class BenchmarkScreen extends StatefulWidget {
@@ -29,7 +30,6 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
   String? _error;
   BenchmarkService? _benchmarkService;
   String? _selectedRawDir;
-  final double _chunkSize = 30.0; // seconds
   Map<String, ModelMetrics>? _benchmarkResults;
   final Map<String, double> _modelProgress = {};
   DateTime? _benchmarkStartTime;
@@ -68,24 +68,23 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
       _isConverting = true;
       _error = null;
       _progress = BenchmarkProgress(
-        currentModel: 'Audio Conversion',
-        currentFile: 'Starting conversion...',
+        currentModel: 'Audio + Transcript Preprocessing',
+        currentFile: 'Starting...',
         processedFiles: 0,
-        totalFiles: 0,
-        phase: 'converting',
+        totalFiles: 0, // We'll set this dynamically
+        phase: 'preprocessing',
       );
     });
 
     try {
       final rawDir = Directory(_selectedRawDir!);
-      final curatedDir =
-          Directory(p.join(Directory.current.path, 'assets', 'curated'));
-
+      final curatedDir = Directory(
+        p.join(Directory.current.path, 'assets', 'curated'),
+      );
       if (!await curatedDir.exists()) {
         await curatedDir.create(recursive: true);
       }
 
-      // Find all audio files
       final audioFiles = await rawDir
           .list(recursive: true)
           .where((entity) =>
@@ -94,82 +93,84 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
                   .contains(p.extension(entity.path).toLowerCase()))
           .toList();
 
-      for (var i = 0; i < audioFiles.length; i++) {
-        final audioFile = audioFiles[i] as File;
+      // We'll track total files for progress
+      final total = audioFiles.length;
+      int processed = 0;
+
+      for (var entity in audioFiles) {
+        final audioFile = entity as File;
         final relativePath = p.relative(audioFile.path, from: rawDir.path);
         final outputBasePath = p.join(curatedDir.path, p.dirname(relativePath));
 
-        try {
-          // Convert audio file
-          final converter = AudioConverter(
-              audioFile.path, outputBasePath, _chunkSize.toInt());
-          final result = await converter.convert(
-            onProgressUpdate: (progress) {
-              setState(() {
-                _progress = progress;
-              });
-            },
-          );
+        // Find matching transcript (SRT, etc.)
+        final baseName = p.basenameWithoutExtension(audioFile.path);
+        final possibleTranscripts = [
+          File(p.join(p.dirname(audioFile.path), '$baseName.srt')),
+          File(p.join(p.dirname(audioFile.path), '$baseName.txt')),
+          // etc. if you have other fallback types
+        ];
 
-          if (!result.success) {
-            print('Error converting ${audioFile.path}: ${result.error}');
-            continue;
+        File? transcriptFile;
+        for (final t in possibleTranscripts) {
+          if (await t.exists()) {
+            transcriptFile = t;
+            break;
           }
-
-          // Look for matching transcript
-          final baseName = p.basenameWithoutExtension(audioFile.path);
-          final possibleTranscripts = [
-            File(p.join(p.dirname(audioFile.path), '$baseName.srt')),
-            File(p.join(p.dirname(audioFile.path), '$baseName.json')),
-            File(p.join(p.dirname(audioFile.path), '$baseName.txt')),
-          ];
-
-          bool foundTranscript = false;
-          for (final transcript in possibleTranscripts) {
-            if (await transcript.exists()) {
-              final processor = TranscriptProcessor(
-                inputPath: transcript.path,
-                outputPath: outputBasePath,
-                chunkSize: _chunkSize,
-              );
-
-              await processor.processTranscript(
-                totalDuration: result.duration ?? _chunkSize,
-                onProgressUpdate: (progress) {
-                  setState(() {
-                    _progress = progress.copyWith(
-                      phase: 'processing_transcript',
-                    );
-                  });
-                },
-              );
-              foundTranscript = true;
-              break;
-            }
-          }
-
-          if (!foundTranscript) {
-            print('Warning: No transcript found for ${audioFile.path}');
-          }
-        } catch (e) {
-          print('Error processing file ${audioFile.path}: $e');
-          setState(() {
-            _error = 'Error processing ${p.basename(audioFile.path)}: $e';
-          });
         }
+
+        if (transcriptFile == null) {
+          print('Warning: No transcript found for ${audioFile.path}');
+          // Possibly skip or just do audio alone
+          continue;
+        }
+
+        // At this point, we have audio + transcript
+        final preprocessor = ASRPreprocessor(
+          audioPath: audioFile.path,
+          transcriptPath: transcriptFile.path,
+          outputPath: outputBasePath,
+        );
+
+        setState(() {
+          _progress = _progress!.copyWith(
+            totalFiles: total,
+            processedFiles: processed,
+            currentFile: 'Preprocessing ${p.basename(audioFile.path)}...',
+          );
+        });
+
+        await preprocessor.process(
+          onProgressUpdate: (progress) {
+            setState(() {
+              _progress = progress.copyWith(
+                totalFiles: total,
+                processedFiles: processed,
+              );
+            });
+          },
+        );
+
+        processed++;
+        setState(() {
+          _progress = _progress!.copyWith(
+            processedFiles: processed,
+            currentFile: 'Done: ${p.basename(audioFile.path)}',
+          );
+        });
       }
 
       setState(() {
-        _progress = _progress?.copyWith(
+        _progress = _progress!.copyWith(
           currentFile: 'Conversion complete',
-          processedFiles: audioFiles.length,
-          totalFiles: audioFiles.length,
+          processedFiles: total,
+          totalFiles: total,
         );
       });
-    } catch (e) {
+    } catch (e, st) {
       setState(() {
-        _error = e.toString();
+        _error = 'Error: $e';
       });
+      print('Error in conversion: $e\n$st');
     } finally {
       setState(() {
         _isConverting = false;

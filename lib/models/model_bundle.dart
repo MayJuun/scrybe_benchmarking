@@ -64,7 +64,7 @@ class OfflineModelBundle extends ModelBundle {
             : sherpa.OfflineTransducerModelConfig(),
         nemoCtc: asrModel.modelType == SherpaModelType.telespeechCtc
             ? sherpa.OfflineNemoEncDecCtcModelConfig(
-                model: p.join(modelDir, asrModel.name, asrModel.name))
+                model: p.join(modelDir, asrModel.name, asrModel.encoder))
             : sherpa.OfflineNemoEncDecCtcModelConfig(),
         whisper: asrModel.modelType == SherpaModelType.whisper
             ? sherpa.OfflineWhisperModelConfig(
@@ -120,13 +120,9 @@ class OfflineModelBundle extends ModelBundle {
 
   @override
   Future<String> decodeAudioFile(String audioPath) async {
-    print('Decoding file: $audioPath');
     final stream = recognizer.createStream();
 
-    print('Loading WAV file as Float32...');
     final rawSamples = await loadWavAsFloat32(audioPath);
-    print('Loaded raw samples: length=${rawSamples.length}, '
-        'first few values=[${rawSamples.take(5).join(", ")}]');
 
     try {
       // Add preprocessing for NeMo models
@@ -134,17 +130,13 @@ class OfflineModelBundle extends ModelBundle {
 
       processedSamples = rawSamples;
 
-      print('Accepting waveform into stream...');
       stream.acceptWaveform(samples: processedSamples, sampleRate: 16000);
 
-      print('Decoding stream...');
       recognizer.decode(stream);
 
-      print('Getting result...');
       final text = recognizer.getResult(stream).text;
       stream.free();
 
-      print('Final text result: $text');
       return punctuation?.addPunct(text.toLowerCase().trim()) ?? text;
     } catch (e, stacktrace) {
       print('Error during processing: $e');
@@ -175,12 +167,22 @@ class OnlineModelBundle extends ModelBundle {
                 joiner: p.join(modelDir, asrModel.name, asrModel.joiner),
               )
             : sherpa.OnlineTransducerModelConfig(),
+        zipformer2Ctc: asrModel.modelType == SherpaModelType.zipformer2Ctc
+            ? sherpa.OnlineZipformer2CtcModelConfig(
+                model: p.join(modelDir, asrModel.name, asrModel.encoder),
+              )
+            : sherpa.OnlineZipformer2CtcModelConfig(),
+        // neMoCtc: asrModel.modelType == SherpaModelType.nemoCtc
+        //     ? sherpa.OnlineNeMoCtcModelConfig(
+        //         model: p.join(modelDir, asrModel.name, asrModel.encoder))
+        //     : sherpa.OnlineNeMoCtcModelConfig(),
         tokens: p.join(modelDir, asrModel.name, asrModel.tokens),
         numThreads: 1,
         modelType: asrModel.modelType.toString(),
         debug: false,
       ),
     );
+
     final asrRecognizer = sherpa.OnlineRecognizer(asrConfig);
 
     return OnlineModelBundle(
@@ -224,12 +226,9 @@ class OnlineModelBundle extends ModelBundle {
 
   @override
   Future<String> decodeAudioFile(String audioPath) async {
-    print('Decoding file: $audioPath');
     final stream = recognizer.createStream();
 
     final samples = await loadWavAsFloat32(audioPath);
-
-    // print('Loaded ${samples.length} samples');
 
     stream.acceptWaveform(samples: samples, sampleRate: 16000);
 

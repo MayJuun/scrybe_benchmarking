@@ -27,7 +27,7 @@ class PunctuationService {
   }
 
   Future<void> _initializeOnline(String modelDir) async {
-    print('Initializing online punctuation with modelDir: $modelDir');
+    
 
     final modelPath = p.join(modelDir, 'model.onnx');
     final vocabPath = p.join(modelDir, 'bpe.vocab');
@@ -36,8 +36,8 @@ class PunctuationService {
     final modelExists = await File(modelPath).exists();
     final vocabExists = await File(vocabPath).exists();
 
-    print('Model file exists: $modelExists at $modelPath');
-    print('Vocab file exists: $vocabExists at $vocabPath');
+    
+    
 
     if (!modelExists || !vocabExists) {
       throw Exception('Missing required files for punctuation model');
@@ -55,20 +55,16 @@ class PunctuationService {
       throw Exception('Failed to create OnlinePunctuation');
     }
 
-    print(
-        'Punctuation service initialized with ptr: ${_onlinePunctuation?.ptr}');
   }
 
   Future<void> _initializeOffline(String modelDir) async {
-    print('Initializing offline punctuation with modelDir: $modelDir');
+    
 
     final ctTransformerPath = p.join(modelDir, 'model.onnx');
 
     // Check if files exist
     final ctTransformerExists = await File(ctTransformerPath).exists();
 
-    print(
-        'CtTransformer file exists: $ctTransformerExists at $ctTransformerPath');
 
     if (!ctTransformerExists) {
       throw Exception('Missing required files for punctuation model');
@@ -87,26 +83,24 @@ class PunctuationService {
     if (_offlinePunctuation?.ptr == null) {
       throw Exception('Failed to create OfflinePunctuation');
     }
-    print(
-        'Punctuation service initialized with ptr: ${_onlinePunctuation?.ptr}');
   }
 
   String addPunctuation(String text) {
     final normalizedText = text.toLowerCase().trim();
-    print('Normalized text: $normalizedText');
+    
 
     switch (type) {
       case PunctuationType.online:
-        print('Online punctuation');
+        
         if (_onlinePunctuation == null) {
           throw StateError('Online punctuation not initialized');
         }
         // Add more debug info
-        print('Punctuation service ptr: ${_onlinePunctuation?.ptr}');
+        
         try {
           final result = _onlinePunctuation!.addPunct(normalizedText);
-          print('Punctuation result length: ${result.length}');
-          print('Raw punctuation result: "$result"');
+          
+          
           if (result.isEmpty) {
             // If empty, return the original text to avoid losing content
             print('Empty punctuation result, returning original text');
@@ -120,19 +114,19 @@ class PunctuationService {
         }
 
       case PunctuationType.offline:
-        print('Online punctuation');
+        
         if (_offlinePunctuation == null) {
           throw StateError('Online punctuation not initialized');
         }
         // Add more debug info
-        print('Punctuation service ptr: ${_offlinePunctuation?.ptr}');
+        
         try {
           final result = _offlinePunctuation!.addPunct(normalizedText);
-          print('Punctuation result length: ${result.length}');
-          print('Raw punctuation result: "$result"');
+          
+          
           if (result.isEmpty) {
             // If empty, return the original text to avoid losing content
-            print('Empty punctuation result, returning original text');
+            
             return normalizedText;
           }
           return result;
