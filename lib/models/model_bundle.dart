@@ -190,11 +190,11 @@ class OnlineModelBundle extends ModelBundle {
             : sherpa.OnlineZipformer2CtcModelConfig(),
 
         // Nemo CTC for streaming
-        neMoCtc: (asrModel.modelType == SherpaModelType.nemoCtcOnline)
-            ? sherpa.OnlineNeMoCtcModelConfig(
-                model: p.join(modelDir, asrModel.name, asrModel.encoder),
-              )
-            : sherpa.OnlineNeMoCtcModelConfig(),
+        // neMoCtc: (asrModel.modelType == SherpaModelType.nemoCtcOnline)
+        //     ? sherpa.OnlineNeMoCtcModelConfig(
+        //         model: p.join(modelDir, asrModel.name, asrModel.encoder),
+        //       )
+        //     : sherpa.OnlineNeMoCtcModelConfig(),
 
         tokens: p.join(modelDir, asrModel.name, asrModel.tokens),
         numThreads: 1,
