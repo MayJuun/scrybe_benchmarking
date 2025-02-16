@@ -105,6 +105,3 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 | sherpa-onnx-streaming-zipformer-en-2023-06-26.int8 | 380 | 28.72% | 9.09% | 100.00% | 71.28% | 1.78 | 0.07 |
 | sherpa-onnx-zipformer-large-en-2023-06-26 | 380 | 25.60% | 7.04% | 100.00% | 74.40% | 1.28 | 0.05 |
 | sherpa-onnx-zipformer-large-en-2023-06-26.int8 | 380 | 25.65% | 7.04% | 100.00% | 74.35% | 0.81 | 0.03 |
-
-
-
