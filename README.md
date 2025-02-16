@@ -1,5 +1,33 @@
 # scrybe_benchmarking
 
+I'm sure there are faster ways to do this, but this allowed me to test locally on my PC and use Flutter in the process. Happy for any PRs or suggestions anyone has.
+
+## Setup
+
+- Ensure you have an ```assets/``` directory in the main project directory
+- inside ```assets/``` include ```curated/```, ```derived/```, ```models/```, and ```raw/```
+- in ```models/```, just put a directory for each model you want to test
+
+## stuff
+
+.
+├── sherpa-onnx-moonshine-base-en-int8
+│   ├── cached_decode.int8.onnx
+│   ├── encode.int8.onnx
+│   ├── LICENSE
+│   ├── preprocess.onnx
+│   ├── README.md
+│   ├── tokens.txt
+│   └── uncached_decode.int8.onnx
+├── sherpa-onnx-nemo-ctc-en-conformer-large
+│   ├── add-model-metadata.py
+│   ├── model.int8.onnx
+│   ├── model.onnx
+│   ├── quantize-model.py
+│   ├── README.md
+│   ├── test.py
+│   └── tokens.txt
+
 ## Testing
 
 Setting up an automatic pipeline for evaluating and comparing different models of ASR
