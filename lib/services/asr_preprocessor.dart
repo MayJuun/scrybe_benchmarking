@@ -1,36 +1,29 @@
-import 'dart:convert';
-import 'dart:io';
-import 'dart:math' as math;
+// ignore_for_file: avoid_print
 
-import 'package:path/path.dart' as p;
+import 'dart:io';
+
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
-/// This class takes an original [audioPath] and a matching [transcriptPath],
-/// splits them into smaller chunks (1-20s) for training & benchmarking in ASR.
-/// Each chunk gets its own audio file (.wav) & matching 0-based SRT file.
 class ASRPreprocessor {
+  ASRPreprocessor({required this.audioPath, required this.transcriptPath}) {
+    var tempPath =
+        audioPath.replaceAll('/raw/', '/curated/').replaceAll('.wav', '');
+    if (!Directory(tempPath).existsSync()) {
+      Directory(tempPath).createSync(recursive: true);
+    }
+    outputPath = tempPath;
+  }
+
   final String audioPath;
   final String transcriptPath;
-  final String outputPath;
+  late final String outputPath;
 
-  // Configuration parameters
-  final double minSegmentDuration = 1.0; // Recommended min chunk length
-  final double maxSegmentDuration = 20.0; // Recommended max chunk length
-  final RegExp speakerPattern = RegExp(r'\[.*?\]:|>>|\b[A-Z]+\s*:');
-  final RegExp formatPattern = RegExp(r'<[^>]+>');
+  String twoDigits(int value) => value.toString().padLeft(2, '0');
+  String threeDigits(int value) => value.toString().padLeft(3, '0');
 
-  ASRPreprocessor({
-    required this.audioPath,
-    required this.transcriptPath,
-    required this.outputPath,
-  });
-
-  /// Main pipeline:
-  /// 1) Parse transcript into [SubtitleSegment]s
-  /// 2) Clean text, remove speaker tags
-  /// 3) Merge tiny segments & split overly long segments
-  /// 4) Write out audio chunks and offset SRT files
-  /// 5) Generate a JSON manifest for training/benchmarking
+  /// Main entry point.
+  // ignore: unintended_html_in_doc_comment
+  /// Usage: dart split_srt_audio.dart <input_srt> <input_wav> <output_prefix>
   Future<void> process({
     required Function(BenchmarkProgress) onProgressUpdate,
   }) async {
@@ -46,23 +39,42 @@ class ASRPreprocessor {
         ),
       );
 
-      // Step 1: Load transcript
-      final rawSegments = await _loadTranscript();
+      // Verify input files exist
+      if (!await File(transcriptPath).exists()) {
+        print('Error: SRT file not found: $transcriptPath');
+        exit(1);
+      }
+      if (!await File(audioPath).exists()) {
+        print('Error: WAV file not found: $audioPath');
+        exit(1);
+      }
 
-      // Step 2: Clean transcript
-      final cleanedSegments = _cleanSegments(rawSegments);
+      // Verify ffmpeg is installed
+      try {
+        final result = await Process.run('ffmpeg', ['-version']);
+        if (result.exitCode != 0) {
+          print('Error: ffmpeg is not installed or not accessible');
+          exit(1);
+        }
+      } catch (e) {
+        print('Error: ffmpeg is required but not found');
+        exit(1);
+      }
 
-      // Step 3: Merge short or connected segments
-      final mergedSegments = _mergeSegments(cleanedSegments);
+      print('Parsing SRT file...');
+      final subtitles = await parseSrtFile();
+      if (subtitles.isEmpty) {
+        print('Error: No subtitles found in file');
+        exit(1);
+      }
 
-      // Step 4: Split segments that exceed maxSegmentDuration
-      final splitSegments = _optimizeSegmentDurations(mergedSegments);
+      print('Creating chunks...');
+      final chunks = createSmartSubtitleChunks(subtitles);
 
-      // Step 5: Process audio & transcripts in parallel
-      await Future.wait([
-        _processAudio(splitSegments, onProgressUpdate),
-        _writeProcessedTranscripts(splitSegments, onProgressUpdate),
-      ]);
+      print('Splitting audio and writing subtitles...');
+      await splitAudioAndWriteSubtitles(chunks);
+
+      print('Done! Created ${chunks.length} segments.');
     } catch (e, stack) {
       print('Error in ASR preprocessing: $e\n$stack');
       onProgressUpdate(
@@ -79,303 +91,245 @@ class ASRPreprocessor {
     }
   }
 
-  // --------------------------------------------------------------------------
-  // 1) LOAD TRANSCRIPT
-  // --------------------------------------------------------------------------
-  Future<List<SubtitleSegment>> _loadTranscript() async {
-    final file = File(transcriptPath);
-    if (!await file.exists()) {
-      throw Exception('Transcript file not found: $transcriptPath');
-    }
+  /// Parses an SRT file into a list of [Subtitle] objects.
+  Future<List<Subtitle>> parseSrtFile() async {
+    final lines = await File(transcriptPath).readAsLines();
+    final subtitles = <Subtitle>[];
 
-    if (p.extension(transcriptPath).toLowerCase() == '.srt') {
-      return _parseSrtFile(file);
-    } else {
-      throw Exception('Unsupported transcript format (only .srt supported).');
-    }
-  }
-
-  Future<List<SubtitleSegment>> _parseSrtFile(File srtFile) async {
-    final lines = await srtFile.readAsLines();
-    final segments = <SubtitleSegment>[];
-
-    String? timeLine;
+    int? currentIndex;
+    double? currentStart;
+    double? currentEnd;
     final textBuffer = <String>[];
 
     for (var line in lines) {
       line = line.trim();
 
       if (line.isEmpty) {
-        if (timeLine != null && textBuffer.isNotEmpty) {
-          final times = timeLine.split('-->');
-          final start = SubtitleSegment.parseTimeString(times[0].trim());
-          final end = SubtitleSegment.parseTimeString(times[1].trim());
-
-          segments.add(
-            SubtitleSegment(
-              start: start,
-              end: end,
-              text: textBuffer.join('\n'),
+        if (currentIndex != null &&
+            currentStart != null &&
+            currentEnd != null) {
+          subtitles.add(
+            Subtitle(
+              index: currentIndex,
+              startSeconds: currentStart,
+              endSeconds: currentEnd,
+              textLines: List.from(textBuffer),
             ),
           );
         }
-        timeLine = null;
+        currentIndex = null;
+        currentStart = null;
+        currentEnd = null;
         textBuffer.clear();
-      } else if (line.contains('-->')) {
-        timeLine = line;
-      } else if (!RegExp(r'^\d+$').hasMatch(line)) {
-        textBuffer.add(line);
+        continue;
       }
+
+      if (RegExp(r'^\d+$').hasMatch(line)) {
+        currentIndex = int.parse(line);
+        continue;
+      }
+
+      if (line.contains('-->')) {
+        final times = line.split('-->');
+        if (times.length == 2) {
+          try {
+            currentStart = parseSrtTime(times[0].trim());
+            currentEnd = parseSrtTime(times[1].trim());
+          } catch (e) {
+            print('Warning: Failed to parse timestamp: $line');
+            continue;
+          }
+        }
+        continue;
+      }
+
+      textBuffer.add(line);
     }
 
-    // Handle last segment if file doesn't end with blank line
-    if (timeLine != null && textBuffer.isNotEmpty) {
-      final times = timeLine.split('-->');
-      final start = SubtitleSegment.parseTimeString(times[0].trim());
-      final end = SubtitleSegment.parseTimeString(times[1].trim());
-
-      segments.add(
-        SubtitleSegment(
-          start: start,
-          end: end,
-          text: textBuffer.join('\n'),
+    // Handle final subtitle if file doesn't end with blank line
+    if (currentIndex != null && currentStart != null && currentEnd != null) {
+      subtitles.add(
+        Subtitle(
+          index: currentIndex,
+          startSeconds: currentStart,
+          endSeconds: currentEnd,
+          textLines: List.from(textBuffer),
         ),
       );
     }
 
-    return segments;
+    return subtitles;
   }
 
-  // --------------------------------------------------------------------------
-  // 2) CLEAN TRANSCRIPT
-  // --------------------------------------------------------------------------
-  List<SubtitleSegment> _cleanSegments(List<SubtitleSegment> segments) {
-    return segments
-        .map((segment) {
-          var text = segment.text;
-          // Remove speaker labels and formatting tags
-          text = text.replaceAll(speakerPattern, '');
-          text = text.replaceAll(formatPattern, '');
-          // Normalize whitespace
-          text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  /// Creates chunks of subtitles with improved splitting logic.
+  /// Aims for ~30 second chunks but will adjust based on sentence boundaries
+  /// and natural speech patterns.
+  List<List<Subtitle>> createSmartSubtitleChunks(List<Subtitle> subtitles) {
+    const targetDuration = 30.0;
+    const minDuration = 15.0;
+    const maxDuration = 40.0;
 
-          return SubtitleSegment(
-            start: segment.start,
-            end: segment.end,
-            text: text,
-          );
-        })
-        .where((segment) => segment.text.isNotEmpty)
-        .toList();
-  }
+    final chunks = <List<Subtitle>>[];
+    var currentChunk = <Subtitle>[];
+    double chunkStart =
+        subtitles.isNotEmpty ? subtitles.first.startSeconds : 0.0;
 
-  // --------------------------------------------------------------------------
-  // 3) MERGE SHORT/CONNECTED SEGMENTS
-  // --------------------------------------------------------------------------
-  List<SubtitleSegment> _mergeSegments(List<SubtitleSegment> segments) {
-    if (segments.isEmpty) return [];
+    for (var i = 0; i < subtitles.length; i++) {
+      final sub = subtitles[i];
+      final nextSub = i < subtitles.length - 1 ? subtitles[i + 1] : null;
 
-    final merged = <SubtitleSegment>[];
-    SubtitleSegment current = segments.first;
+      currentChunk.add(sub);
+      final chunkDuration = sub.endSeconds - chunkStart;
 
-    for (int i = 1; i < segments.length; i++) {
-      final next = segments[i];
+      // Conditions for ending the current chunk:
+      bool shouldEndChunk = false;
 
-      if (_shouldMergeSegments(current, next)) {
-        current = SubtitleSegment(
-          start: current.start,
-          end: next.end,
-          text: '${current.text} ${next.text}',
-        );
-      } else {
-        merged.add(current);
-        current = next;
+      // 1. Chunk is near target duration and current subtitle ends a sentence
+      if (chunkDuration >= targetDuration * 0.8 && sub.endsWithSentence) {
+        shouldEndChunk = true;
       }
-    }
-    merged.add(current);
 
-    return merged;
-  }
+      // 2. Chunk has reached maximum duration
+      if (chunkDuration >= maxDuration) {
+        shouldEndChunk = true;
+      }
 
-  bool _shouldMergeSegments(SubtitleSegment current, SubtitleSegment next) {
-    // Merge if there's less than 0.3s gap
-    final timeGap = next.start - current.end;
-    if (timeGap < 0.3) return true;
+      // 3. Natural break in speech (gap between subtitles)
+      if (nextSub != null && nextSub.startSeconds - sub.endSeconds > 2.0) {
+        shouldEndChunk = true;
+      }
 
-    // Or if the current text does not end with typical punctuation
-    if (current.text.endsWith(',') ||
-        current.text.endsWith(';') ||
-        !RegExp(r'[.!?]$').hasMatch(current.text)) {
-      return true;
-    }
-
-    // Or if the next text begins with lowercase
-    if (next.text.isNotEmpty && next.text[0].toLowerCase() == next.text[0]) {
-      return true;
-    }
-
-    return false;
-  }
-
-  // --------------------------------------------------------------------------
-  // 4) SPLIT LONG SEGMENTS
-  // --------------------------------------------------------------------------
-  List<SubtitleSegment> _optimizeSegmentDurations(
-    List<SubtitleSegment> segments,
-  ) {
-    final optimized = <SubtitleSegment>[];
-    SubtitleSegment? current;
-
-    for (final segment in segments) {
-      final duration = segment.end - segment.start;
-
-      if (duration < minSegmentDuration) {
-        // If short, try to merge with `current`
-        if (current != null) {
-          current = _mergeSubtitleSegments(current, segment);
-        } else {
-          current = segment;
+      if (shouldEndChunk &&
+          currentChunk.isNotEmpty &&
+          (sub.endSeconds - chunkStart) >= minDuration) {
+        chunks.add(List.from(currentChunk));
+        currentChunk.clear();
+        if (nextSub != null) {
+          chunkStart = nextSub.startSeconds;
         }
-      } else if (duration > maxSegmentDuration) {
-        // If too long, split into multiple smaller segments
-        optimized.addAll(_splitLongSegment(segment));
-        current = null;
-      } else {
-        // If just right, add to optimized, also flush pending `current`
-        if (current != null) {
-          optimized.add(current);
-        }
-        optimized.add(segment);
-        current = null;
       }
     }
 
-    if (current != null) {
-      optimized.add(current);
+    // Add any remaining subtitles as the final chunk
+    if (currentChunk.isNotEmpty) {
+      chunks.add(currentChunk);
     }
 
-    return optimized;
+    return chunks;
   }
 
-  SubtitleSegment _mergeSubtitleSegments(
-      SubtitleSegment first, SubtitleSegment second) {
-    return SubtitleSegment(
-      start: first.start,
-      end: second.end,
-      text: '${first.text} ${second.text}',
-    );
-  }
-
-  List<SubtitleSegment> _splitLongSegment(SubtitleSegment segment) {
-    final duration = segment.end - segment.start;
-    final parts = (duration / maxSegmentDuration).ceil();
-    final splitDuration = duration / parts;
-
-    final words = segment.text.split(' ');
-    final wordsPerPart = (words.length / parts).ceil();
-
-    return List.generate(parts, (i) {
-      final subStart = segment.start + (i * splitDuration);
-      final subEnd = math.min(subStart + splitDuration, segment.end);
-
-      final startWord = i * wordsPerPart;
-      final endWord = math.min((i + 1) * wordsPerPart, words.length);
-      final chunkText = words.sublist(startWord, endWord).join(' ');
-
-      return SubtitleSegment(
-        start: subStart,
-        end: subEnd,
-        text: chunkText,
-      );
-    });
-  }
-
-  // --------------------------------------------------------------------------
-  // 5) PROCESS AUDIO
-  // --------------------------------------------------------------------------
-  Future<void> _processAudio(
-    List<SubtitleSegment> segments,
-    Function(BenchmarkProgress) onProgressUpdate,
+  /// For each chunk, runs ffmpeg to split the audio and writes matching SRT.
+  Future<void> splitAudioAndWriteSubtitles(
+    List<List<Subtitle>> chunks,
   ) async {
-    final audioConverter = AudioConverter(
-      audioPath,
-      outputPath,
-      maxSegmentDuration.toInt(),
-    );
+    for (var i = 0; i < chunks.length; i++) {
+      final chunk = chunks[i];
+      final chunkStart = chunk.first.startSeconds;
+      final chunkEnd = chunk.last.endSeconds;
+      final chunkDuration = chunkEnd - chunkStart;
 
-    // Use the "convertWithSegments" approach, which creates one WAV per segment
-    await audioConverter.convertWithSegments(
-      segments: segments,
-      onProgressUpdate: onProgressUpdate,
-    );
-  }
+      final paddedIndex = (i + 1).toString().padLeft(3, '0');
+      final chunkWavPath = '$outputPath/$paddedIndex.wav';
+      final chunkSrtPath = '$outputPath/$paddedIndex.srt';
 
-  // --------------------------------------------------------------------------
-  // 6) WRITE CHUNKED TRANSCRIPTS + MANIFEST
-  // --------------------------------------------------------------------------
-  Future<void> _writeProcessedTranscripts(
-    List<SubtitleSegment> segments,
-    Function(BenchmarkProgress) onProgressUpdate,
-  ) async {
-    // 6a) Write JSON manifest
-    final manifest = segments
-        .asMap()
-        .entries
-        .map((entry) => {
-              'audio_filepath':
-                  '${p.basenameWithoutExtension(audioPath)}_part${entry.key + 1}.wav',
-              'text': entry.value.text,
-              'duration': entry.value.end - entry.value.start,
-            })
-        .toList();
+      // Split audio with ffmpeg
+      final result = await Process.run('ffmpeg', [
+        '-y',
+        '-i', audioPath,
+        '-ss', chunkStart.toStringAsFixed(3),
+        '-t', chunkDuration.toStringAsFixed(3),
+        '-ac', '1', // Convert to mono
+        '-ar', '16000', // Set sample rate to 16kHz
+        chunkWavPath,
+      ]);
 
-    final manifestFile = File(
-      p.join(
-        outputPath,
-        p.basenameWithoutExtension(audioPath),
-        'manifest.json',
-      ),
-    );
-    if (!manifestFile.existsSync()) {
-      await manifestFile.create(recursive: true);
-    }
-    await manifestFile.writeAsString(jsonEncode(manifest));
-
-    // 6b) Write one .srt per chunk, offsetting times so each chunk is 0-based
-    for (int i = 0; i < segments.length; i++) {
-      final segment = segments[i];
-      final baseName = p.basenameWithoutExtension(audioPath);
-      final srtDir = p.join(outputPath, baseName);
-
-      final outFile = File(
-        p.join(srtDir, '${baseName}_part${i + 1}.srt'),
-      );
-      if (!outFile.existsSync()) {
-        await outFile.create(recursive: true);
+      if (result.exitCode != 0) {
+        print('Warning: FFmpeg error on chunk $paddedIndex: ${result.stderr}');
+        continue;
       }
 
-      // The chunk's total length
-      final chunkDuration = segment.end - segment.start;
+      // Write the corresponding SRT file
+      final srtContent = buildChunkSrt(chunk, i + 1, chunkStart);
+      await File(chunkSrtPath).writeAsString(srtContent);
 
-      // Offset the times so it starts at 0.0 for this chunk
-      final offsetSegment = SubtitleSegment(
-        start: 0.0, // ALWAYS 0.0
-        end: chunkDuration, // (end - start)
-        text: segment.text, // Merged text or single line
-      );
-
-      // Write offset SRT
-      await outFile.writeAsString(offsetSegment.toSrtString(i + 1));
-
-      onProgressUpdate(
-        BenchmarkProgress(
-          currentModel: 'Transcript Processing',
-          currentFile: 'Writing segment ${i + 1}/${segments.length}',
-          processedFiles: i + 1,
-          totalFiles: segments.length,
-          phase: 'preprocessing',
-        ),
-      );
+      // Print progress
+      print(
+          'Created segment $paddedIndex (${chunkDuration.toStringAsFixed(1)}s)');
     }
+  }
+
+  /// Builds an SRT string for a chunk of subtitles.
+  String buildChunkSrt(
+      List<Subtitle> chunk, int chunkIndex, double chunkStartOffset) {
+    final buffer = StringBuffer();
+    for (var i = 0; i < chunk.length; i++) {
+      final sub = chunk[i];
+      final localStart = sub.startSeconds - chunkStartOffset;
+      final localEnd = sub.endSeconds - chunkStartOffset;
+
+      buffer.writeln(i + 1);
+      buffer.writeln(
+          '${formatSrtTime(localStart)} --> ${formatSrtTime(localEnd)}');
+      for (final line in sub.textLines) {
+        buffer.writeln(line);
+      }
+      buffer.writeln();
+    }
+    return buffer.toString();
+  }
+
+  /// Parses an SRT timestamp into seconds.
+  double parseSrtTime(String srtTime) {
+    final parts = srtTime.split(',');
+    final timePart = parts[0];
+    final msPart = parts.length > 1 ? parts[1] : '0';
+
+    final hms = timePart.split(':');
+    final hours = int.parse(hms[0]);
+    final minutes = int.parse(hms[1]);
+    final seconds = int.parse(hms[2]);
+    final milliseconds = int.parse(msPart);
+
+    return hours * 3600 + minutes * 60 + seconds + (milliseconds / 1000.0);
+  }
+
+  /// Formats seconds to SRT timestamp.
+  String formatSrtTime(double seconds) {
+    final totalMs = (seconds * 1000).round();
+    final hrs = totalMs ~/ 3600000;
+    final remainderAfterHours = totalMs % 3600000;
+    final mins = remainderAfterHours ~/ 60000;
+    final remainderAfterMinutes = remainderAfterHours % 60000;
+    final secs = remainderAfterMinutes ~/ 1000;
+    final ms = remainderAfterMinutes % 1000;
+
+    return '${twoDigits(hrs)}:${twoDigits(mins)}:${twoDigits(secs)},${threeDigits(ms)}';
+  }
+}
+
+/// A simple class to hold subtitle data.
+class Subtitle {
+  int index;
+  double startSeconds;
+  double endSeconds;
+  List<String> textLines;
+
+  Subtitle({
+    required this.index,
+    required this.startSeconds,
+    required this.endSeconds,
+    required this.textLines,
+  });
+
+  /// Calculate duration of this subtitle
+  double get duration => endSeconds - startSeconds;
+
+  /// Check if this subtitle ends with sentence-ending punctuation
+  bool get endsWithSentence {
+    if (textLines.isEmpty) return false;
+    final lastLine = textLines.last.trim();
+    return lastLine.endsWith('.') ||
+        lastLine.endsWith('!') ||
+        lastLine.endsWith('?');
   }
 }

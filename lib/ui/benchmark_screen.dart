@@ -29,11 +29,12 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
   bool _isConverting = false;
   String? _error;
   BenchmarkService? _benchmarkService;
-  String? _selectedRawDir;
   Map<String, ModelMetrics>? _benchmarkResults;
   final Map<String, double> _modelProgress = {};
   DateTime? _benchmarkStartTime;
   final Map<String, Duration> _modelTimings = {};
+  final String _selectedRawDir =
+      Directory(p.join(Directory.current.path, 'assets', 'raw')).path;
 
   @override
   void dispose() {
@@ -42,27 +43,10 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
   }
 
   // --------------------------------------------------------------------------
-  // PICK RAW DIRECTORY (demo approach - in production you may use a proper file picker)
-  // --------------------------------------------------------------------------
-  Future<void> _selectRawDirectory() async {
-    // Replace this with a real directory picker if needed
-    final rawDir = Directory(p.join(Directory.current.path, 'assets', 'raw'));
-    if (await rawDir.exists()) {
-      setState(() {
-        _selectedRawDir = rawDir.path;
-      });
-    } else {
-      setState(() {
-        _error = 'Raw directory not found: ${rawDir.path}';
-      });
-    }
-  }
-
-  // --------------------------------------------------------------------------
   // CONVERT RAW FILES
   // --------------------------------------------------------------------------
   Future<void> _convertRawFiles() async {
-    if (_isConverting || _selectedRawDir == null) return;
+    if (_isConverting) return;
 
     setState(() {
       _isConverting = true;
@@ -77,7 +61,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     });
 
     try {
-      final rawDir = Directory(_selectedRawDir!);
+      final rawDir = Directory(_selectedRawDir);
       final curatedDir = Directory(
         p.join(Directory.current.path, 'assets', 'curated'),
       );
@@ -99,15 +83,13 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
 
       for (var entity in audioFiles) {
         final audioFile = entity as File;
-        final relativePath = p.relative(audioFile.path, from: rawDir.path);
-        final outputBasePath = p.join(curatedDir.path, p.dirname(relativePath));
 
         // Find matching transcript (SRT, etc.)
         final baseName = p.basenameWithoutExtension(audioFile.path);
         final possibleTranscripts = [
           File(p.join(p.dirname(audioFile.path), '$baseName.srt')),
+          File(p.join(p.dirname(audioFile.path), '$baseName.json')),
           File(p.join(p.dirname(audioFile.path), '$baseName.txt')),
-          // etc. if you have other fallback types
         ];
 
         File? transcriptFile;
@@ -126,10 +108,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
 
         // At this point, we have audio + transcript
         final preprocessor = ASRPreprocessor(
-          audioPath: audioFile.path,
-          transcriptPath: transcriptFile.path,
-          outputPath: outputBasePath,
-        );
+            audioPath: audioFile.path, transcriptPath: transcriptFile.path);
 
         setState(() {
           _progress = _progress!.copyWith(
@@ -149,32 +128,10 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
             });
           },
         );
-
-        processed++;
-        setState(() {
-          _progress = _progress!.copyWith(
-            processedFiles: processed,
-            currentFile: 'Done: ${p.basename(audioFile.path)}',
-          );
-        });
       }
-
-      setState(() {
-        _progress = _progress!.copyWith(
-          currentFile: 'Conversion complete',
-          processedFiles: total,
-          totalFiles: total,
-        );
-      });
-    } catch (e, st) {
-      setState(() {
-        _error = 'Error: $e';
-      });
-      print('Error in conversion: $e\n$st');
-    } finally {
-      setState(() {
-        _isConverting = false;
-      });
+    } catch (e) {
+      print('Error: $e');
+      rethrow;
     }
   }
 
@@ -350,7 +307,6 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
               isRunning: _isRunning,
               isConverting: _isConverting,
               selectedRawDir: _selectedRawDir,
-              onSelectRawDir: _selectRawDirectory,
               onConvertRaw: _convertRawFiles,
               onStartBenchmarkConfirmed: _confirmStartBenchmark,
             ),
@@ -649,7 +605,6 @@ class BenchmarkControlSection extends StatelessWidget {
   final bool isRunning;
   final bool isConverting;
   final String? selectedRawDir;
-  final VoidCallback onSelectRawDir;
   final VoidCallback onConvertRaw;
   final VoidCallback onStartBenchmarkConfirmed;
 
@@ -658,7 +613,6 @@ class BenchmarkControlSection extends StatelessWidget {
     required this.isRunning,
     required this.isConverting,
     required this.selectedRawDir,
-    required this.onSelectRawDir,
     required this.onConvertRaw,
     required this.onStartBenchmarkConfirmed,
   });
@@ -688,14 +642,6 @@ class BenchmarkControlSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        // Example button to pick a directory
-        FilledButton(
-          onPressed: !isRunning && !isConverting ? onSelectRawDir : null,
-          child: const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text('Select Raw Directory'),
-          ),
-        ),
       ],
     );
   }
