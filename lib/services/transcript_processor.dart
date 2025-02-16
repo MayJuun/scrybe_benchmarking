@@ -12,7 +12,7 @@ class TranscriptProcessor {
   TranscriptProcessor({
     required this.inputPath,
     required this.outputPath,
-    this.chunkSize = 30.0,
+    required this.chunkSize,
   });
 
   Future<void> processTranscript({

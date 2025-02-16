@@ -3,7 +3,7 @@ import 'package:path/path.dart' as p;
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
 class AudioConverter {
-  AudioConverter(this.rawFile, this.outputBasePath, [this.chunkSize = 30]);
+  AudioConverter(this.rawFile, this.outputBasePath, this.chunkSize);
 
   final String rawFile;
   final String outputBasePath;

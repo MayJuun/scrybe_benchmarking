@@ -217,6 +217,28 @@ class BenchmarkService {
     }
   }
 
+  Future<double?> _getAudioDuration(String wavPath) async {
+    final result = await Process.run('ffprobe', [
+      '-v',
+      'error',
+      '-show_entries',
+      'format=duration',
+      '-of',
+      'default=noprint_wrappers=1:nokey=1',
+      wavPath,
+    ]);
+
+    if (result.exitCode != 0) {
+      stderr.writeln('ffprobe error: ${result.stderr}');
+      return null;
+    }
+
+    final output = result.stdout.toString().trim();
+    if (output.isEmpty) return null;
+
+    return double.tryParse(output);
+  }
+
   Future<ProcessingResult?> _processAudioFile({
     required File wavFile,
     required ModelBundle modelBundle,
@@ -261,8 +283,12 @@ class BenchmarkService {
     // Compute WER
     final wer = WerCalculator.computeWer(referenceText, finalText) * 100.0;
 
-    // We assume each chunk is 30s of audio (modify if partial leftover, etc.)
-    final chunkAudioSeconds = 30.0;
+    final maybeDuration = await _getAudioDuration(wavFile.path);
+    if (maybeDuration == null) {
+      // Handle error case or default to 0
+      throw Exception('Failed to get duration for ${wavFile.path}');
+    }
+    final chunkAudioSeconds = maybeDuration;
 
     // Build subdirectory for storing results for this chunk
     final relativeDir = p.relative(p.dirname(wavFile.path), from: curatedDir);
@@ -273,7 +299,8 @@ class BenchmarkService {
 
     // Save generated SRT
     final outSrtFilePath = p.join(outSubDir.path, '$fileBaseName.srt');
-    await File(outSrtFilePath).writeAsString(_generateSrt(finalText));
+    await File(outSrtFilePath)
+        .writeAsString(_generateSrt(finalText, chunkAudioSeconds));
 
     // Save a quick comparison text file
     final outComparisonFilePath = p.join(outSubDir.path, '$fileBaseName.txt');
@@ -312,9 +339,9 @@ class BenchmarkService {
     return buffer.join(' ');
   }
 
-  String _generateSrt(String text) {
-    // We assume 30s chunk for demonstration, adjust if needed
-    const duration = Duration(seconds: 30);
+  String _generateSrt(String text, double durationSeconds) {
+    Duration duration =
+        Duration(microseconds: (durationSeconds * 1000000).round());
     final startStr = _formatDuration(Duration.zero);
     final endStr = _formatDuration(duration);
     return '1\n$startStr --> $endStr\n$text\n';
