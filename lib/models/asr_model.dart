@@ -48,7 +48,7 @@ enum SherpaModelType {
       case nemoCtcOffline:
         return 'nemo_ctc';
       case nemoCtcOnline:
-        return 'nemo_ctc';
+        return 'nemo-ctc-model';
 
       case zipformer2Ctc:
         return 'zipformer2_ctc';

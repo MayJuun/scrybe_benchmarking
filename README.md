@@ -105,3 +105,12 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 | sherpa-onnx-streaming-zipformer-en-2023-06-26.int8 | 380 | 28.72% | 9.09% | 100.00% | 71.28% | 1.78 | 0.07 |
 | sherpa-onnx-zipformer-large-en-2023-06-26 | 380 | 25.60% | 7.04% | 100.00% | 74.40% | 1.28 | 0.05 |
 | sherpa-onnx-zipformer-large-en-2023-06-26.int8 | 380 | 25.65% | 7.04% | 100.00% | 74.35% | 0.81 | 0.03 |
+
+
+## Run 3
+
+| Model | Files | Avg WER | Min WER | Max WER | Word Accuracy | Avg Decode (s) | RTF |
+|-------|-------|---------|---------|---------|---------------|----------------|-----|
+| sherpa-onnx-moonshine-base-en-int8 | 1348 | 12.57% | 0.00% | 175.00% | 87.43% | 0.38 | 0.05 |
+
+

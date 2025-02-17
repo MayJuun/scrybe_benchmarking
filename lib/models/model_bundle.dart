@@ -169,6 +169,14 @@ class OnlineModelBundle extends ModelBundle {
     AsrModel asrModel,
     String modelDir,
   ) {
+    print('Creating online model bundle for ${asrModel.name}');
+    final filePath = p.join(modelDir, asrModel.name, asrModel.encoder);
+    print('Encoder path: $filePath');
+    if (File(filePath).existsSync()) {
+      print('Encoder exists');
+    } else {
+      print('Encoder does not exist');
+    }
     final asrConfig = sherpa.OnlineRecognizerConfig(
       model: sherpa.OnlineModelConfig(
         // For streaming transducer (zipformer2, conformer, lstm, etc.)
@@ -190,20 +198,22 @@ class OnlineModelBundle extends ModelBundle {
             : sherpa.OnlineZipformer2CtcModelConfig(),
 
         // Nemo CTC for streaming
-        // neMoCtc: (asrModel.modelType == SherpaModelType.nemoCtcOnline)
-        //     ? sherpa.OnlineNeMoCtcModelConfig(
-        //         model: p.join(modelDir, asrModel.name, asrModel.encoder),
-        //       )
-        //     : sherpa.OnlineNeMoCtcModelConfig(),
+        neMoCtc: (asrModel.modelType == SherpaModelType.nemoCtcOnline)
+            ? sherpa.OnlineNeMoCtcModelConfig(
+                model: p.join(modelDir, asrModel.name, asrModel.encoder),
+              )
+            : sherpa.OnlineNeMoCtcModelConfig(),
 
         tokens: p.join(modelDir, asrModel.name, asrModel.tokens),
         numThreads: 1,
         modelType: asrModel.modelType.toString(),
-        debug: false,
+        debug: true,
       ),
     );
 
+    print('Created online config');
     final asrRecognizer = sherpa.OnlineRecognizer(asrConfig);
+    print('Created online recognizer');
 
     return OnlineModelBundle(
       recognizer: asrRecognizer,

@@ -165,9 +165,9 @@ class ASRPreprocessor {
   /// Aims for ~30 second chunks but will adjust based on sentence boundaries
   /// and natural speech patterns.
   List<List<Subtitle>> createSmartSubtitleChunks(List<Subtitle> subtitles) {
-    const targetDuration = 30.0;
-    const minDuration = 15.0;
-    const maxDuration = 40.0;
+    const targetDuration = 3.0;
+    const minDuration = 1.0;
+    const maxDuration = 5.0;
 
     final chunks = <List<Subtitle>>[];
     var currentChunk = <Subtitle>[];
