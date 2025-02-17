@@ -14,6 +14,19 @@ final asrModels = [
     modelType: SherpaModelType.moonshine,
   ),
 
+  // Offline Whisper model
+  AsrModel(
+    name: 'sherpa-onnx-whisper-small.en.int8',
+    encoder: 'small.en-encoder.int8.onnx',
+    decoder: 'small.en-decoder.int8.onnx',
+    preprocessor: '',
+    uncachedDecoder: '',
+    cachedDecoder: '',
+    joiner: '',
+    tokens: 'small.en-tokens.txt',
+    modelType: SherpaModelType.whisper,
+  ),
+
   // // Offline Whisper model (INT8)
   // AsrModel(
   //   name: 'sherpa-onnx-whisper-medium.en.int8',
@@ -24,19 +37,6 @@ final asrModels = [
   //   cachedDecoder: '',
   //   joiner: '',
   //   tokens: 'medium.en-tokens.txt',
-  //   modelType: SherpaModelType.whisper,
-  // ),
-
-  // // Offline Whisper model
-  // AsrModel(
-  //   name: 'sherpa-onnx-whisper-small.en.int8',
-  //   encoder: 'small.en-encoder.int8.onnx',
-  //   decoder: 'small.en-decoder.int8.onnx',
-  //   preprocessor: '',
-  //   uncachedDecoder: '',
-  //   cachedDecoder: '',
-  //   joiner: '',
-  //   tokens: 'small.en-tokens.txt',
   //   modelType: SherpaModelType.whisper,
   // ),
 
