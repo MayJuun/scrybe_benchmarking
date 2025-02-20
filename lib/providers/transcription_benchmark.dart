@@ -63,6 +63,7 @@ class TranscriptionBenchmarkNotifier
   // --------------------------------------------------------------------------
   // Main method: runTranscriptionBenchmark
   // --------------------------------------------------------------------------
+
   Future<void> runTranscriptionBenchmark({
     required List<OfflineRecognizerConfig> offlineConfigs,
   }) async {
@@ -89,6 +90,9 @@ class TranscriptionBenchmarkNotifier
         final fileMap = newResults[modelName]!['files']
             as Map<String, Map<String, dynamic>>;
 
+        // Initialize model once per config
+        final offline = OfflineRecognizer(offlineCfg);
+
         // Then process each file with this model
         for (int i = 0; i < totalFiles; i++) {
           final wavPath = state.testFiles[i];
@@ -103,12 +107,15 @@ class TranscriptionBenchmarkNotifier
 
           final result = await _transcribeFileOffline(
             wavPath: wavPath,
-            offlineConfig: offlineCfg,
+            offlineRecognizer: offline, // Pass the initialized recognizer
           );
           fileMap[wavPath] = result;
 
           state = state.copyWith(results: newResults);
         }
+
+        // Free the recognizer after processing all files with it
+        offline.free();
       }
 
       final outputPath =
@@ -135,24 +142,18 @@ class TranscriptionBenchmarkNotifier
     }
   }
 
-  // --------------------------------------------------------------------------
-  // Transcribe one file with an offline config
-  //
-  //    We feed the entire wave data in one shot, then call decode(stream).
-  // --------------------------------------------------------------------------
   Future<Map<String, dynamic>> _transcribeFileOffline({
     required String wavPath,
-    required OfflineRecognizerConfig offlineConfig,
+    required OfflineRecognizer
+        offlineRecognizer, // Changed to take initialized recognizer
   }) async {
     final reference = await _loadSrtTranscript(wavPath);
     final startTime = DateTime.now();
 
-    // 1) Create the OfflineRecognizer
-    final offline = OfflineRecognizer(offlineConfig);
-    // 2) Create an OfflineStream
-    final stream = offline.createStream();
+    // Create a stream from the existing recognizer
+    final stream = offlineRecognizer.createStream();
 
-    // 3) Convert the wave data to Float32List
+    // Convert the wave data to Float32List
     final waveData = await rootBundle.load(wavPath);
     final allBytes = waveData.buffer.asUint8List();
 
@@ -165,25 +166,24 @@ class TranscriptionBenchmarkNotifier
 
     final float32Data = _toFloat32List(pcmBytes);
 
-    // 4) Accept entire waveform
+    // Accept entire waveform
     stream.acceptWaveform(samples: float32Data, sampleRate: 16000);
 
-    // 5) Decode
-    offline.decode(stream);
+    // Decode
+    offlineRecognizer.decode(stream);
 
-    // 6) Get the final recognized text
-    final result = offline.getResult(stream);
+    // Get the final recognized text
+    final result = offlineRecognizer.getResult(stream);
     final recognizedText = result.text;
 
     final durationMs = DateTime.now().difference(startTime).inMilliseconds;
 
-    // 7) Compute RTF
+    // Compute RTF
     final audioMs = _estimateAudioMs(pcmBytes.length);
     final rtf = (audioMs == 0) ? 0.0 : durationMs / audioMs;
 
-    // free
+    // free only the stream, not the recognizer
     stream.free();
-    offline.free();
 
     return {
       'text': recognizedText.trim(),

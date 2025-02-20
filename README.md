@@ -109,8 +109,7 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 
 ## Run 3
 
-| Model | Files | Avg WER | Min WER | Max WER | Word Accuracy | Avg Decode (s) | RTF |
-|-------|-------|---------|---------|---------|---------------|----------------|-----|
-| sherpa-onnx-moonshine-base-en-int8 | 1348 | 12.57% | 0.00% | 175.00% | 87.43% | 0.38 | 0.05 |
-
-
+# Test Data
+- Vital Signs ~4 hours
+- Covid Mechanical Ventilation ~2 hours
+- Musculoskeletal ~1 hour

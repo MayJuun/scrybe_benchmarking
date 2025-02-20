@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -13,7 +14,7 @@ class DictationBenchmarkState {
   final String currentFile;
   final double progress; // 0..1
   final String recognizedText;
-  final Map<String, Map<String, dynamic>> results; 
+  final Map<String, Map<String, dynamic>> results;
   final List<String> testFiles;
 
   const DictationBenchmarkState({
@@ -93,10 +94,12 @@ class DictationBenchmarkNotifier extends Notifier<DictationBenchmarkState> {
         // For each online config
         for (final config in onlineConfigs) {
           final modelName = config.modelName;
-          newResults.putIfAbsent(modelName, () => {
-            'type': 'online',
-            'files': <String, Map<String, dynamic>>{},
-          });
+          newResults.putIfAbsent(
+              modelName,
+              () => {
+                    'type': 'online',
+                    'files': <String, Map<String, dynamic>>{},
+                  });
           final fileMap = newResults[modelName]!['files']
               as Map<String, Map<String, dynamic>>;
 
@@ -111,10 +114,12 @@ class DictationBenchmarkNotifier extends Notifier<DictationBenchmarkState> {
         // For each offline config
         for (final config in offlineConfigs) {
           final modelName = config.modelName;
-          newResults.putIfAbsent(modelName, () => {
-            'type': 'offline',
-            'files': <String, Map<String, dynamic>>{},
-          });
+          newResults.putIfAbsent(
+              modelName,
+              () => {
+                    'type': 'offline',
+                    'files': <String, Map<String, dynamic>>{},
+                  });
           final fileMap = newResults[modelName]!['files']
               as Map<String, Map<String, dynamic>>;
 
@@ -130,13 +135,19 @@ class DictationBenchmarkNotifier extends Notifier<DictationBenchmarkState> {
         state = state.copyWith(results: newResults);
       }
 
+      final outputPath =
+          Directory(p.join(Directory.current.path, 'assets', 'derived'));
+      if (await outputPath.exists()) {
+        await outputPath.delete(recursive: true);
+      }
+      await outputPath.create(recursive: true);
+
       // Optionally generate CSV/JSON
       final reporter = BenchmarkReportGenerator(
         results: newResults,
-        outputDir: '/some/output/dir',
+        outputDir: outputPath.path,
       );
       await reporter.generateReports();
-
     } catch (e, st) {
       print('DictationBenchmark error: $e\n$st');
     } finally {
@@ -202,7 +213,8 @@ class DictationBenchmarkNotifier extends Notifier<DictationBenchmarkState> {
     };
   }
 
-  Future<void> _feedAudioInChunks(String wavPath, DictationBase dictation) async {
+  Future<void> _feedAudioInChunks(
+      String wavPath, DictationBase dictation) async {
     final wavData = await rootBundle.load(wavPath);
     final allBytes = wavData.buffer.asUint8List();
 
