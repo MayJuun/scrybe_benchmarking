@@ -2,21 +2,74 @@
 
 import 'dart:io';
 
-import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
+import 'package:path/path.dart' as p;
 
 class ASRPreprocessor {
-  ASRPreprocessor({required this.audioPath, required this.transcriptPath}) {
-    var tempPath =
-        audioPath.replaceAll('/raw/', '/curated/').replaceAll('.wav', '');
-    if (!Directory(tempPath).existsSync()) {
-      Directory(tempPath).createSync(recursive: true);
+  ASRPreprocessor(
+      {this.targetDuration = 20.0,
+      this.minDuration = 5.0,
+      this.maxDuration = 30.0});
+
+  final double targetDuration;
+  final double minDuration;
+  final double maxDuration;
+
+  Future<void> convertRawFiles() async {
+    try {
+      final rawDir = Directory(p.join(Directory.current.path, 'assets', 'raw'));
+      for (final entity in rawDir.listSync()) {
+        if (entity is Directory) {
+          await convertRawDirectory(entity);
+        }
+      }
+    } catch (e) {
+      print('Error: $e');
+      rethrow;
     }
-    outputPath = tempPath;
   }
 
-  final String audioPath;
-  final String transcriptPath;
-  late final String outputPath;
+  Future<void> convertRawDirectory(Directory rawDir) async {
+    try {
+      final audioFiles = await rawDir
+          .list(recursive: true)
+          .where((entity) =>
+              entity is File &&
+              ['.wav', '.mp3', '.m4a']
+                  .contains(p.extension(entity.path).toLowerCase()))
+          .toList();
+
+      for (var entity in audioFiles) {
+        final audioFile = entity as File;
+
+        // Find matching transcript (SRT, etc.)
+        final baseName = p.basenameWithoutExtension(audioFile.path);
+        final possibleTranscripts = [
+          File(p.join(p.dirname(audioFile.path), '$baseName.srt')),
+          File(p.join(p.dirname(audioFile.path), '$baseName.json')),
+          File(p.join(p.dirname(audioFile.path), '$baseName.txt')),
+        ];
+
+        File? transcriptFile;
+        for (final t in possibleTranscripts) {
+          if (await t.exists()) {
+            transcriptFile = t;
+            break;
+          }
+        }
+
+        if (transcriptFile == null) {
+          print('Warning: No transcript found for ${audioFile.path}');
+          // Possibly skip or just do audio alone
+          continue;
+        }
+
+        await process(transcriptFile.path, audioFile.path);
+      }
+    } catch (e) {
+      print('Error: $e');
+      rethrow;
+    }
+  }
 
   String twoDigits(int value) => value.toString().padLeft(2, '0');
   String threeDigits(int value) => value.toString().padLeft(3, '0');
@@ -24,21 +77,8 @@ class ASRPreprocessor {
   /// Main entry point.
   // ignore: unintended_html_in_doc_comment
   /// Usage: dart split_srt_audio.dart <input_srt> <input_wav> <output_prefix>
-  Future<void> process({
-    required Function(BenchmarkProgress) onProgressUpdate,
-  }) async {
+  Future<void> process(String transcriptPath, String audioPath) async {
     try {
-      // Initial progress update
-      onProgressUpdate(
-        BenchmarkProgress(
-          currentModel: 'ASR Preprocessing',
-          currentFile: transcriptPath,
-          processedFiles: 0,
-          totalFiles: 3,
-          phase: 'preprocessing',
-        ),
-      );
-
       // Verify input files exist
       if (!await File(transcriptPath).exists()) {
         print('Error: SRT file not found: $transcriptPath');
@@ -62,7 +102,7 @@ class ASRPreprocessor {
       }
 
       print('Parsing SRT file...');
-      final subtitles = await parseSrtFile();
+      final subtitles = await parseSrtFile(transcriptPath);
       if (subtitles.isEmpty) {
         print('Error: No subtitles found in file');
         exit(1);
@@ -72,27 +112,24 @@ class ASRPreprocessor {
       final chunks = createSmartSubtitleChunks(subtitles);
 
       print('Splitting audio and writing subtitles...');
-      await splitAudioAndWriteSubtitles(chunks);
+
+      final outputPath =
+          audioPath.replaceAll('/raw/', '/curated/').replaceAll('.wav', '');
+      if (!Directory(outputPath).existsSync()) {
+        Directory(outputPath).createSync(recursive: true);
+      }
+      await splitAudioAndWriteSubtitles(chunks, outputPath, audioPath);
 
       print('Done! Created ${chunks.length} segments.');
     } catch (e, stack) {
       print('Error in ASR preprocessing: $e\n$stack');
-      onProgressUpdate(
-        BenchmarkProgress(
-          currentModel: 'ASR Preprocessing',
-          currentFile: transcriptPath,
-          processedFiles: 0,
-          totalFiles: 1,
-          error: e.toString(),
-          phase: 'preprocessing',
-        ),
-      );
+
       rethrow;
     }
   }
 
   /// Parses an SRT file into a list of [Subtitle] objects.
-  Future<List<Subtitle>> parseSrtFile() async {
+  Future<List<Subtitle>> parseSrtFile(String transcriptPath) async {
     final lines = await File(transcriptPath).readAsLines();
     final subtitles = <Subtitle>[];
 
@@ -165,10 +202,6 @@ class ASRPreprocessor {
   /// Aims for ~30 second chunks but will adjust based on sentence boundaries
   /// and natural speech patterns.
   List<List<Subtitle>> createSmartSubtitleChunks(List<Subtitle> subtitles) {
-    const targetDuration = 2.0;
-    const minDuration = 0.5;
-    const maxDuration = 4.0;
-
     final chunks = <List<Subtitle>>[];
     var currentChunk = <Subtitle>[];
     double chunkStart =
@@ -221,6 +254,8 @@ class ASRPreprocessor {
   /// For each chunk, runs ffmpeg to split the audio and writes matching SRT.
   Future<void> splitAudioAndWriteSubtitles(
     List<List<Subtitle>> chunks,
+    String outputPath,
+    String audioPath,
   ) async {
     for (var i = 0; i < chunks.length; i++) {
       final chunk = chunks[i];
