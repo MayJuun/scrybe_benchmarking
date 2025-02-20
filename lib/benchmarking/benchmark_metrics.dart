@@ -1,7 +1,7 @@
 // benchmark_metrics.dart
-import 'package:flutter/services.dart';
+
 import 'package:path/path.dart' as path;
-import 'package:scrybe_benchmarking/benchmarking/benchmarking.dart';
+import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
 class BenchmarkMetrics {
   final String modelName;
@@ -25,20 +25,19 @@ class BenchmarkMetrics {
   });
 
   /// Factory method to create benchmark metrics with all necessary calculations
-  static Future<BenchmarkMetrics> create({
+  static BenchmarkMetrics create({
     required String modelName,
     required String modelType,
     required String wavFile,
     required String transcription,
     required String reference,
     required Duration processingDuration,
-  }) async {
+    required int audioLengthMs, // <--- we pass this in now
+  }) {
     // Calculate WER stats
     final werStats = WerCalculator.getDetailedStats(reference, transcription);
 
-    // Calculate RTF
-    final audioFile = await rootBundle.load(wavFile);
-    final audioLengthMs = (audioFile.lengthInBytes / (16000 * 2)).floor() * 1000;
+    // Calculate RTF = processingTime / audioTime
     final rtf = processingDuration.inMilliseconds / audioLengthMs;
 
     return BenchmarkMetrics._(

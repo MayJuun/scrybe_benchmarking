@@ -1,25 +1,26 @@
-import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data'; // for Float32List
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
-
 import 'package:sherpa_onnx/sherpa_onnx.dart';
-import 'package:scrybe_benchmarking/scrybe_benchmarking.dart'; // if needed for WER, etc.
+import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
 class TranscriptionBenchmarkState {
   final bool isTranscribing;
   final String currentFile;
   final double progress; // 0..1
-  final Map<String, Map<String, dynamic>> results;
+
+  /// Now we store final metrics in a list, instead of a nested map.
+  final List<BenchmarkMetrics> metricsList;
+
   final List<String> testFiles;
 
   const TranscriptionBenchmarkState({
     this.isTranscribing = false,
     this.currentFile = '',
     this.progress = 0.0,
-    this.results = const {},
+    this.metricsList = const [],
     this.testFiles = const [],
   });
 
@@ -27,14 +28,14 @@ class TranscriptionBenchmarkState {
     bool? isTranscribing,
     String? currentFile,
     double? progress,
-    Map<String, Map<String, dynamic>>? results,
+    List<BenchmarkMetrics>? metricsList,
     List<String>? testFiles,
   }) {
     return TranscriptionBenchmarkState(
       isTranscribing: isTranscribing ?? this.isTranscribing,
       currentFile: currentFile ?? this.currentFile,
       progress: progress ?? this.progress,
-      results: results ?? this.results,
+      metricsList: metricsList ?? this.metricsList,
       testFiles: testFiles ?? this.testFiles,
     );
   }
@@ -49,10 +50,16 @@ class TranscriptionBenchmarkNotifier
 
   // --------------------------------------------------------------------------
   // Load test .wav files from assets
+  // (Here you load from 'assets/curated', but adjust as needed.)
   // --------------------------------------------------------------------------
   Future<void> loadTestFiles() async {
     final curatedDir =
         Directory(p.join(Directory.current.path, 'assets', 'curated'));
+    if (!await curatedDir.exists()) {
+      print('No curated dir found at: ${curatedDir.path}');
+      return;
+    }
+
     final testPaths =
         curatedDir.listSync(recursive: true).map((e) => e.path).toList();
     final wavs = testPaths.where((p) => p.endsWith('.wav')).toList();
@@ -61,63 +68,57 @@ class TranscriptionBenchmarkNotifier
   }
 
   // --------------------------------------------------------------------------
-  // Main method: runTranscriptionBenchmark
+  // Main method: runTranscriptionBenchmark (offline)
   // --------------------------------------------------------------------------
-
   Future<void> runTranscriptionBenchmark({
     required List<OfflineRecognizerConfig> offlineConfigs,
   }) async {
-    // Clear old results, mark isTranscribing
+    // Reset
     state = state.copyWith(
       isTranscribing: true,
-      results: {},
+      metricsList: [],
       progress: 0.0,
     );
 
-    final newResults = <String, Map<String, dynamic>>{};
+    final allMetrics = <BenchmarkMetrics>[];
     final totalFiles = state.testFiles.length;
 
     try {
-      // 1) For each offline config
-      for (final offlineCfg in offlineConfigs) {
-        final modelName = offlineCfg.modelName;
-        newResults.putIfAbsent(
-            modelName,
-            () => {
-                  'type': 'offline',
-                  'files': <String, Map<String, dynamic>>{},
-                });
-        final fileMap = newResults[modelName]!['files']
-            as Map<String, Map<String, dynamic>>;
+      for (final cfg in offlineConfigs) {
+        final offlineRecognizer = OfflineRecognizer(cfg);
 
-        // Initialize model once per config
-        final offline = OfflineRecognizer(offlineCfg);
-
-        // Then process each file with this model
         for (int i = 0; i < totalFiles; i++) {
           final wavPath = state.testFiles[i];
           final baseName = p.basename(wavPath);
-          final newProgress = i / totalFiles;
+          final progressVal = i / totalFiles;
 
-          // Update state for UI
           state = state.copyWith(
             currentFile: baseName,
-            progress: newProgress,
+            progress: progressVal,
           );
 
-          final result = await _transcribeFileOffline(
+          // Transcribe
+          final metrics = await _transcribeFileOffline(
             wavPath: wavPath,
-            offlineRecognizer: offline, // Pass the initialized recognizer
+            offlineRecognizer: offlineRecognizer,
+            modelName: cfg.modelName,
           );
-          fileMap[wavPath] = result;
+          allMetrics.add(metrics);
 
-          state = state.copyWith(results: newResults);
+          // Update partial state
+          state = state.copyWith(metricsList: List.from(allMetrics));
         }
 
-        // Free the recognizer after processing all files with it
-        offline.free();
+        offlineRecognizer.free();
       }
 
+      // Final
+      state = state.copyWith(
+        progress: 1.0,
+        metricsList: allMetrics,
+      );
+
+      // Generate CSV/JSON/MD
       final outputPath =
           Directory(p.join(Directory.current.path, 'assets', 'derived'));
       if (await outputPath.exists()) {
@@ -125,9 +126,8 @@ class TranscriptionBenchmarkNotifier
       }
       await outputPath.create(recursive: true);
 
-      // Optionally create a final CSV/JSON/MD
       final reporter = BenchmarkReportGenerator(
-        results: newResults,
+        metricsList: allMetrics, // pass the entire list
         outputDir: outputPath.path,
       );
       await reporter.generateReports();
@@ -142,20 +142,22 @@ class TranscriptionBenchmarkNotifier
     }
   }
 
-  Future<Map<String, dynamic>> _transcribeFileOffline({
+  // --------------------------------------------------------------------------
+  // Single-file offline transcription => returns 1 BenchmarkMetrics
+  // --------------------------------------------------------------------------
+  Future<BenchmarkMetrics> _transcribeFileOffline({
     required String wavPath,
-    required OfflineRecognizer
-        offlineRecognizer, // Changed to take initialized recognizer
+    required OfflineRecognizer offlineRecognizer,
+    required String modelName,
   }) async {
-    final reference = await _loadSrtTranscript(wavPath);
     final startTime = DateTime.now();
 
     // Create a stream from the existing recognizer
     final stream = offlineRecognizer.createStream();
 
-    // Convert the wave data to Float32List
-    final waveData = await rootBundle.load(wavPath);
-    final allBytes = waveData.buffer.asUint8List();
+    // Convert wave data to Float32List
+    final wavData = await rootBundle.load(wavPath);
+    final allBytes = wavData.buffer.asUint8List();
 
     Uint8List pcmBytes;
     if (_hasRiffHeader(allBytes)) {
@@ -172,63 +174,66 @@ class TranscriptionBenchmarkNotifier
     // Decode
     offlineRecognizer.decode(stream);
 
-    // Get the final recognized text
+    // Get recognized text
     final result = offlineRecognizer.getResult(stream);
-    final recognizedText = result.text;
+    final recognizedText = result.text.trim();
 
-    final durationMs = DateTime.now().difference(startTime).inMilliseconds;
+    final endTime = DateTime.now();
+    final durationMs = endTime.difference(startTime).inMilliseconds;
 
-    // Compute RTF
+    // RTF
     final audioMs = _estimateAudioMs(pcmBytes.length);
-    final rtf = (audioMs == 0) ? 0.0 : durationMs / audioMs;
+    final rtf = (audioMs == 0) ? 0.0 : (durationMs / audioMs);
 
-    // free only the stream, not the recognizer
+    // Load reference
+    final reference = await _loadSrtTranscript(wavPath);
+
+    // free the stream
     stream.free();
 
-    return {
-      'text': recognizedText.trim(),
-      'reference': reference,
-      'duration_ms': durationMs,
-      'real_time_factor': rtf,
-    };
+    // Build a BenchmarkMetrics object
+    final metrics = BenchmarkMetrics.create(
+      modelName: modelName,
+      modelType: 'offline',
+      wavFile: wavPath,
+      transcription: recognizedText,
+      reference: reference,
+      processingDuration: Duration(milliseconds: durationMs),
+      audioLengthMs: audioMs,
+    );
+
+    return metrics;
   }
 
-  // --------------------------------------------------------------------------
-  // Helpers
-  // --------------------------------------------------------------------------
   bool _hasRiffHeader(Uint8List bytes) {
-    // Enough length for standard header, and starts with "RIFF"
     if (bytes.length < 44) return false;
-    return (bytes[0] == 0x52 &&
-        bytes[1] == 0x49 &&
-        bytes[2] == 0x46 &&
-        bytes[3] == 0x46);
+    return (bytes[0] == 0x52 && // R
+        bytes[1] == 0x49 &&    // I
+        bytes[2] == 0x46 &&    // F
+        bytes[3] == 0x46);     // F
   }
 
-  /// Convert raw 16-bit PCM bytes to Float32List in range [-1.0, 1.0]
   Float32List _toFloat32List(Uint8List pcmBytes) {
-    // For 16-bit little endian, we read 2 bytes per sample
-    // e.g., short int in C. Then scale by (1.0 / 32768.0)
     final numSamples = pcmBytes.length ~/ 2;
     final floatData = Float32List(numSamples);
 
     for (int i = 0; i < numSamples; i++) {
       final low = pcmBytes[2 * i];
       final high = pcmBytes[2 * i + 1];
-      // Combine
       final sample = (high << 8) | (low & 0xff);
-      // If sign bit set, convert to negative
-      int signedVal = (sample & 0x8000) != 0 ? sample | ~0xffff : sample;
+
+      // Sign-extend if necessary
+      int signedVal =
+          (sample & 0x8000) != 0 ? (sample | ~0xffff) : sample & 0xffff;
+
       floatData[i] = signedVal / 32768.0;
     }
 
     return floatData;
   }
 
-  /// Estimate audio length in ms from # of (16-bit) bytes
   int _estimateAudioMs(int numBytes) {
-    // sampleCount = numBytes / 2
-    // audioMs = (sampleCount * 1000) / 16000
+    // 16-bit => 2 bytes per sample, 16 kHz => 16000 samples/sec
     final sampleCount = numBytes ~/ 2;
     return (sampleCount * 1000) ~/ 16000;
   }
@@ -248,11 +253,8 @@ class TranscriptionBenchmarkNotifier
     final sb = StringBuffer();
     for (final l in lines) {
       final trimmed = l.trim();
-      // skip empty
       if (trimmed.isEmpty) continue;
-      // skip numeric lines
       if (RegExp(r'^\d+$').hasMatch(trimmed)) continue;
-      // skip lines with --> timestamps
       if (trimmed.contains('-->')) continue;
       sb.write('$trimmed ');
     }
@@ -261,7 +263,7 @@ class TranscriptionBenchmarkNotifier
 }
 
 // The provider
-final transcriptionBenchmarkNotifierProvider = NotifierProvider<
-    TranscriptionBenchmarkNotifier, TranscriptionBenchmarkState>(
+final transcriptionBenchmarkNotifierProvider =
+    NotifierProvider<TranscriptionBenchmarkNotifier, TranscriptionBenchmarkState>(
   TranscriptionBenchmarkNotifier.new,
 );
