@@ -183,7 +183,6 @@ class TranscriptionBenchmarkNotifier
 
     // RTF
     final audioMs = _estimateAudioMs(pcmBytes.length);
-    final rtf = (audioMs == 0) ? 0.0 : (durationMs / audioMs);
 
     // Load reference
     final reference = await _loadSrtTranscript(wavPath);

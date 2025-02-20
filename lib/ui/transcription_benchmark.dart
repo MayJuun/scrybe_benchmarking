@@ -23,12 +23,17 @@ class _TranscriptionBenchmarkScreenState
   @override
   void initState() {
     super.initState();
+    // If needed, load test files automatically:
+    ref.read(transcriptionBenchmarkNotifierProvider.notifier).loadTestFiles();
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(transcriptionBenchmarkNotifierProvider);
     final notifier = ref.read(transcriptionBenchmarkNotifierProvider.notifier);
+
+    final isRunning = state.isTranscribing;
+    final fileCount = state.testFiles.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -38,16 +43,17 @@ class _TranscriptionBenchmarkScreenState
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Text('Found ${state.testFiles.length} test files'),
+            Text('Found $fileCount test files'),
             const SizedBox(height: 16),
-            if (state.isTranscribing) ...[
+
+            if (isRunning) ...[
               Text('Current file: ${state.currentFile}'),
               LinearProgressIndicator(value: state.progress),
               const SizedBox(height: 16),
               const Expanded(child: Center(child: Text('Transcribing...'))),
             ] else ...[
               ElevatedButton(
-                onPressed: state.testFiles.isEmpty
+                onPressed: fileCount == 0
                     ? null
                     : () {
                         notifier.runTranscriptionBenchmark(
@@ -58,7 +64,9 @@ class _TranscriptionBenchmarkScreenState
               ),
               const SizedBox(height: 16),
               Expanded(
-                child: _ResultsList(results: state.results),
+                child: _TranscriptionResultsList(
+                  metricsList: state.metricsList,
+                ),
               ),
             ],
           ],
@@ -68,39 +76,53 @@ class _TranscriptionBenchmarkScreenState
   }
 }
 
-class _ResultsList extends StatelessWidget {
-  final Map<String, Map<String, dynamic>> results;
+class _TranscriptionResultsList extends StatelessWidget {
+  final List<BenchmarkMetrics> metricsList;
 
-  const _ResultsList({required this.results});
+  const _TranscriptionResultsList({required this.metricsList});
 
   @override
   Widget build(BuildContext context) {
-    if (results.isEmpty) {
+    if (metricsList.isEmpty) {
       return const Center(child: Text('No results yet'));
     }
+
+    // Group by modelName + modelType (though modelType is usually 'offline' here)
+    final grouped = <String, List<BenchmarkMetrics>>{};
+    for (final m in metricsList) {
+      final key = '${m.modelName}___${m.modelType}';
+      grouped.putIfAbsent(key, () => []).add(m);
+    }
+
+    final keys = grouped.keys.toList();
+
     return ListView.builder(
-      itemCount: results.keys.length,
+      itemCount: keys.length,
       itemBuilder: (context, index) {
-        final modelName = results.keys.elementAt(index);
-        final modelInfo = results[modelName]!;
-        final filesMap = modelInfo['files'] as Map<String, dynamic>;
-        final modelType = modelInfo['type'] as String;
+        final key = keys[index];
+        final items = grouped[key]!;
+        final first = items.first;
+        final modelName = first.modelName;
+        final modelType = first.modelType;
 
         return ExpansionTile(
           title: Text('$modelName ($modelType)'),
-          subtitle: Text('${filesMap.length} files processed'),
-          children: filesMap.keys.map((filePath) {
-            final data = filesMap[filePath] as Map<String, dynamic>;
-            final text = data['text'] ?? '';
-            final duration = data['duration_ms'] ?? 0;
-            final rtf = data['real_time_factor'] ?? 0.0;
-            return ListTile(
-              title: Text(p.basename(filePath)),
-              subtitle: Text(
-                'Text: $text\nDuration: ${duration}ms\nRTF: ${rtf.toStringAsFixed(2)}',
+          subtitle: Text('${items.length} files processed'),
+          children: [
+            for (final metric in items)
+              ListTile(
+                title: Text(p.basename(metric.fileName)),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Recognized: ${metric.transcription}'),
+                    Text('Duration: ${metric.durationMs} ms'),
+                    Text('RTF: ${metric.rtf.toStringAsFixed(2)}'),
+                    Text('WER: ${(metric.werStats.wer * 100).toStringAsFixed(2)}%'),
+                  ],
+                ),
               ),
-            );
-          }).toList(),
+          ],
         );
       },
     );

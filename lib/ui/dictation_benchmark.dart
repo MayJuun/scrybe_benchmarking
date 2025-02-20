@@ -35,6 +35,9 @@ class _DictationBenchmarkScreenState
     final state = ref.watch(dictationBenchmarkNotifierProvider);
     final notifier = ref.read(dictationBenchmarkNotifierProvider.notifier);
 
+    final isRunning = state.isBenchmarking;
+    final fileCount = state.testFiles.length;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dictation Benchmark'),
@@ -43,9 +46,10 @@ class _DictationBenchmarkScreenState
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Text('Found ${state.testFiles.length} test files'),
+            Text('Found $fileCount test files'),
             const SizedBox(height: 16),
-            if (state.isBenchmarking) ...[
+
+            if (isRunning) ...[
               Text('Current file: ${state.currentFile}'),
               LinearProgressIndicator(value: state.progress),
               const SizedBox(height: 16),
@@ -58,7 +62,7 @@ class _DictationBenchmarkScreenState
               ),
             ] else ...[
               ElevatedButton(
-                onPressed: state.testFiles.isEmpty
+                onPressed: fileCount == 0
                     ? null
                     : () {
                         notifier.runBenchmark(
@@ -69,45 +73,72 @@ class _DictationBenchmarkScreenState
                 child: const Text('Start Benchmark'),
               ),
               const SizedBox(height: 16),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: state.results.keys.length,
-                  itemBuilder: (context, index) {
-                    final modelName = state.results.keys.elementAt(index);
-                    final modelInfo = state.results[modelName]!;
-                    final fileMap = modelInfo['files']
-                        as Map<String, Map<String, dynamic>>;
-                    final modelType = modelInfo['type'] as String;
 
-                    return ExpansionTile(
-                      title: Text('$modelName ($modelType)'),
-                      subtitle: Text('${fileMap.length} files processed'),
-                      children: [
-                        for (final filePath in fileMap.keys)
-                          ListTile(
-                            title: Text(p.basename(filePath)),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Text: ${fileMap[filePath]!['text']}'),
-                                Text(
-                                  'Duration: ${fileMap[filePath]!['duration_ms']} ms',
-                                ),
-                                Text(
-                                  'RTF: ${fileMap[filePath]!['real_time_factor'].toStringAsFixed(2)}',
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
+              // Once not benchmarking, show the final results from metricsList
+              Expanded(
+                child: _DictationResultsList(metricsList: state.metricsList),
               ),
             ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class _DictationResultsList extends StatelessWidget {
+  final List<BenchmarkMetrics> metricsList;
+
+  const _DictationResultsList({required this.metricsList});
+
+  @override
+  Widget build(BuildContext context) {
+    if (metricsList.isEmpty) {
+      return const Center(
+        child: Text('No results yet'),
+      );
+    }
+
+    // Group them by (modelName, modelType)
+    final grouped = <String, List<BenchmarkMetrics>>{};
+
+    for (final m in metricsList) {
+      final key = '${m.modelName}___${m.modelType}';
+      grouped.putIfAbsent(key, () => []).add(m);
+    }
+
+    final keys = grouped.keys.toList();
+
+    return ListView.builder(
+      itemCount: keys.length,
+      itemBuilder: (context, index) {
+        final key = keys[index];
+        final items = grouped[key]!;
+        // each item has same modelName/modelType, so we can pick from first
+        final first = items.first;
+        final modelName = first.modelName;
+        final modelType = first.modelType;
+
+        return ExpansionTile(
+          title: Text('$modelName ($modelType)'),
+          subtitle: Text('${items.length} files processed'),
+          children: [
+            for (final metric in items)
+              ListTile(
+                title: Text(p.basename(metric.fileName)),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Recognized: ${metric.transcription}'),
+                    Text('Duration: ${metric.durationMs} ms'),
+                    Text('RTF: ${metric.rtf.toStringAsFixed(2)}'),
+                    Text('WER: ${(metric.werStats.wer * 100).toStringAsFixed(2)}%'),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
