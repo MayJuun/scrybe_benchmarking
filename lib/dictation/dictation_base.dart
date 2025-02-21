@@ -1,25 +1,10 @@
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:flutter_recorder/flutter_recorder.dart';
-
-enum DictationStatus { initializing, ready, recording, error }
 
 abstract class DictationBase {
-  final _statusController = StreamController<DictationStatus>.broadcast();
-  Stream<DictationStatus> get statusStream => _statusController.stream;
-
-  final Recorder _audioRecorder = Recorder.instance;
-  StreamSubscription<AudioDataContainer>? _audioSub;
-
-  bool _initialized = false;
-  bool get initialized => _initialized;
-
-  bool _isRecording = false;
-  bool get isRecording => _isRecording;
-
+  bool isRecording = false;
   final int sampleRate;
   final Duration silenceDuration;
-
   final _recognizedTextController = StreamController<String>.broadcast();
   Stream<String> get recognizedTextStream => _recognizedTextController.stream;
 
@@ -28,39 +13,12 @@ abstract class DictationBase {
     int silenceDurationMillis = 500,
   }) : silenceDuration = Duration(milliseconds: silenceDurationMillis);
 
-  Future<void> init() async {
-    if (_initialized) return;
-    await _audioRecorder.init(sampleRate: sampleRate);
-    _audioRecorder.start();
-    _audioSub = _audioRecorder.uint8ListStream.listen((adc) {
-      onAudioData(adc.rawData);
-    });
-    _initialized = true;
-  }
-
   void onAudioData(Uint8List data);
 
-  Future<void> startRecording() async {
-    if (_isRecording) return;
-    _audioRecorder.startStreamingData();
-    _isRecording = true;
-    onRecordingStart();
-  }
-
-  Future<void> stopRecording() async {
-    if (!_isRecording) return;
-    _audioRecorder.stopStreamingData();
-    _isRecording = false;
-    onRecordingStop();
-  }
-
   void onRecordingStart() {}
-  void onRecordingStop() {
-    // Hook for final decode, if needed
-  }
+  void onRecordingStop() {}
 
-  Float32List convertBytesToFloat32(Uint8List bytes,
-      [Endian endian = Endian.little]) {
+  Float32List convertBytesToFloat32(Uint8List bytes, [Endian endian = Endian.little]) {
     final length = bytes.length ~/ 2;
     final floats = Float32List(length);
     final data = ByteData.view(bytes.buffer);
@@ -76,8 +34,6 @@ abstract class DictationBase {
   }
 
   Future<void> dispose() async {
-    await stopRecording();
-    await _audioSub?.cancel();
     await _recognizedTextController.close();
   }
 }

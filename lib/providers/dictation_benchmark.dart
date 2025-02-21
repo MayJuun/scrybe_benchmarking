@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
-/// State for dictation-based (streaming) benchmark
+/// Distinguishes offline-vs-online, but always chunk-feed in near real time.
 class DictationBenchmarkState {
   final bool isBenchmarking;
   final String currentModel;
@@ -15,10 +16,10 @@ class DictationBenchmarkState {
   final double progress; // 0..1
   final String recognizedText;
 
-  /// We now store final metrics in a list.
+  /// We store final metrics in a list, one for each (model + file).
   final List<BenchmarkMetrics> metricsList;
 
-  /// All .wav test files discovered.
+  /// The .wav test files discovered.
   final List<String> testFiles;
 
   const DictationBenchmarkState({
@@ -58,9 +59,7 @@ class DictationBenchmarkNotifier extends Notifier<DictationBenchmarkState> {
     return const DictationBenchmarkState();
   }
 
-  // --------------------------------------------------------------------------
-  // 1) Load .wav test files from assets
-  // --------------------------------------------------------------------------
+  // 1) Load .wav test files from assets/dictation_test/test_files
   Future<void> loadTestFiles() async {
     final manifestContent = await rootBundle.loadString('AssetManifest.json');
     final Map<String, dynamic> manifestMap = json.decode(manifestContent);
@@ -73,14 +72,14 @@ class DictationBenchmarkNotifier extends Notifier<DictationBenchmarkState> {
     state = state.copyWith(testFiles: wavFiles);
   }
 
-  // --------------------------------------------------------------------------
-  // 2) Main run method (benchmark each model on each WAV file)
-  // --------------------------------------------------------------------------
+  /// 2) Main run method: we do chunk-based dictation with
+  ///    (1) online models, or
+  ///    (2) offline models in a "sliding window" or "accumulate + partial decode" approach.
   Future<void> runBenchmark({
     required List<OnlineRecognizerConfig> onlineConfigs,
     required List<OfflineRecognizerConfig> offlineConfigs,
   }) async {
-    // Reset state
+    print('running benchmark');
     state = state.copyWith(
       isBenchmarking: true,
       metricsList: [],
@@ -90,79 +89,100 @@ class DictationBenchmarkNotifier extends Notifier<DictationBenchmarkState> {
 
     final allMetrics = <BenchmarkMetrics>[];
     final totalFiles = state.testFiles.length;
-
     if (totalFiles == 0) {
-      print('No .wav files found in assets/dictation_test/test_files/');
+      print('No .wav files found in dictation_test/test_files/. Aborting.');
       state = state.copyWith(isBenchmarking: false);
       return;
     }
 
     try {
-      // For each WAV file...
-      for (int i = 0; i < totalFiles; i++) {
-        final wavPath = state.testFiles[i];
-        final fileName = p.basename(wavPath);
+      // 2A) "Online" models => chunk feed in real time
+      for (final onlineCfg in onlineConfigs) {
+        final recognizer = OnlineRecognizer(onlineCfg);
+        for (int i = 0; i < totalFiles; i++) {
+          final wavPath = state.testFiles[i];
+          final fileName = p.basename(wavPath);
+          final fileProgress = i / totalFiles;
 
-        final fileProgress = i / totalFiles;
-        state = state.copyWith(
-          currentFile: fileName,
-          progress: fileProgress,
-          recognizedText: '',
-        );
-
-        // For each Online Config
-        for (final config in onlineConfigs) {
-          final metrics = await _runSingleWav(
-            wavPath: wavPath,
-            config: config,
-            isOnline: true,
-          );
-          allMetrics.add(metrics);
-
-          // Update UI with final recognized text (for that run)
           state = state.copyWith(
-            recognizedText: metrics.transcription,
-            currentModel: config.modelName,
+            currentModel: onlineCfg.modelName,
+            currentFile: fileName,
+            progress: fileProgress,
+            recognizedText: '',
+          );
+
+          final m = await _processOneWavOnlineDictation(
+            recognizer,
+            wavPath,
+            onlineCfg.modelName,
+          );
+          allMetrics.add(m);
+
+          // Show recognized text from that final result
+          state = state.copyWith(
+            recognizedText: m.transcription,
+            metricsList: List.from(allMetrics),
           );
         }
-
-        // For each Offline Config
-        for (final config in offlineConfigs) {
-          final metrics = await _runSingleWav(
-            wavPath: wavPath,
-            config: config,
-            isOnline: false,
-          );
-          allMetrics.add(metrics);
-
-          // Update UI with final recognized text
-          state = state.copyWith(
-            recognizedText: metrics.transcription,
-            currentModel: config.modelName,
-          );
-        }
+        recognizer.free();
       }
 
-      // Done all files
+      // 2B) "Offline" models => chunk feed in real time,
+      //     but do repeated partial decode or 1 final decode after each chunk
+      //     using a rolling accumulation or sliding window approach.
+      for (final offlineCfg in offlineConfigs) {
+        print('offline model: ${offlineCfg.modelName}');
+        final recognizer = OfflineRecognizer(offlineCfg);
+        final offlineDictation =
+            OfflineDictation(offlineRecognizer: recognizer);
+        for (int i = 0; i < totalFiles; i++) {
+          final wavPath = state.testFiles[i];
+          final fileName = p.basename(wavPath);
+          final fileProgress = i / totalFiles;
+
+          state = state.copyWith(
+            currentModel: offlineCfg.modelName,
+            currentFile: fileName,
+            progress: fileProgress,
+            recognizedText: '',
+          );
+
+          print('processing $wavPath');
+
+          final m = await _processOneWavOfflineForDictation(
+            offlineDictation,
+            wavPath,
+            offlineCfg.modelName,
+          );
+          allMetrics.add(m);
+
+          state = state.copyWith(
+            recognizedText: m.transcription,
+            metricsList: List.from(allMetrics),
+          );
+        }
+        recognizer.free();
+      }
+
+      // Done all
       state = state.copyWith(progress: 1.0, metricsList: allMetrics);
 
-      // Generate final reports
-      final outputPath =
+      // Optionally write CSV/JSON/MD
+      final outDir =
           Directory(p.join(Directory.current.path, 'assets', 'derived'));
-      if (await outputPath.exists()) {
-        await outputPath.delete(recursive: true);
+      if (await outDir.exists()) {
+        await outDir.delete(recursive: true);
       }
-      await outputPath.create(recursive: true);
+      await outDir.create(recursive: true);
 
       final reporter = BenchmarkReportGenerator(
-        metricsList: allMetrics,  // pass the entire list
-        outputDir: outputPath.path,
+        metricsList: allMetrics,
+        outputDir: outDir.path,
       );
       await reporter.generateReports();
     } catch (e, st) {
       print('DictationBenchmark error: $e\n$st');
     } finally {
-      // Mark done
       state = state.copyWith(
         isBenchmarking: false,
         currentModel: '',
@@ -173,149 +193,171 @@ class DictationBenchmarkNotifier extends Notifier<DictationBenchmarkState> {
   }
 
   // --------------------------------------------------------------------------
-  // 3) Helper to run a single .wav => chunk feed => return BenchmarkMetrics
+  // 3) Online dictation approach: chunk feed
   // --------------------------------------------------------------------------
-  Future<BenchmarkMetrics> _runSingleWav({
-    required String wavPath,
-    required dynamic config,
-    required bool isOnline,
-  }) async {
-    // 1) Instantiate dictation
+  Future<BenchmarkMetrics> _processOneWavOnlineDictation(
+    OnlineRecognizer recognizer,
+    String wavFilePath,
+    String modelName,
+  ) async {
     final startTime = DateTime.now();
-    String modelName;
-    String modelType;
-    DictationBase dictation;
+    final stream = recognizer.createStream();
 
-    if (isOnline) {
-      final c = config as OnlineRecognizerConfig;
-      final onlineRecognizer = OnlineRecognizer(c);
-      modelName = c.modelName;
-      modelType = 'online';
-      dictation = OnlineDictation(onlineRecognizer: onlineRecognizer);
-    } else {
-      final c = config as OfflineRecognizerConfig;
-      final offlineRecognizer = OfflineRecognizer(c);
-      modelName = c.modelName;
-      modelType = 'offline';
-      dictation = OfflineDictation(offlineRecognizer: offlineRecognizer);
-    }
+    final pcmBytes = await _loadAndParseWav(wavFilePath);
 
-    await dictation.init();
+    // 30 ms chunking
+    final chunkMs = 30;
+    final chunkSize = _bytesPerChunk(chunkMs);
 
-    // 2) Load reference transcript
-    final reference = await _loadReference(wavPath);
+    for (int offset = 0; offset < pcmBytes.length; offset += chunkSize) {
+      final iterationStart = DateTime.now();
 
-    // 3) Collect recognized text
-    String recognized = '';
-    final sub = dictation.recognizedTextStream.listen((text) {
-      if (dictation is OnlineDictation) {
-        // For partial
-        final lines = recognized.split('\n');
-        if (lines.isNotEmpty) lines.removeLast();
-        lines.add(text);
-        recognized = lines.join('\n');
-      } else {
-        recognized = '$recognized\n$text';
-      }
-    });
-
-    // 4) Simulate mic input
-    final wavData = await rootBundle.load(wavPath);
-    final rawBytes = wavData.buffer.asUint8List();
-
-    Uint8List pcmBytes;
-    if (_hasRiffHeader(rawBytes)) {
-      pcmBytes = rawBytes.sublist(44);
-    } else {
-      pcmBytes = rawBytes;
-    }
-
-    await dictation.startRecording();
-
-    const chunkMs = 30;
-    final bytesPerMs = (16000 * 2) ~/ 1000; // 32 bytes per ms for 16k mono 16-bit
-    final chunkSize = bytesPerMs * chunkMs; // 960
-
-    int offset = 0;
-    while (offset < pcmBytes.length) {
       final end = (offset + chunkSize).clamp(0, pcmBytes.length);
       final chunk = pcmBytes.sublist(offset, end);
-      offset = end;
 
-      dictation.onAudioData(chunk);
+      final floats = _int16bytesToFloat32(chunk);
+      stream.acceptWaveform(samples: floats, sampleRate: 16000);
 
-      // Wait to mimic real-time
-      await Future.delayed(const Duration(milliseconds: chunkMs));
+      while (recognizer.isReady(stream)) {
+        recognizer.decode(stream);
+      }
+
+      // ensure real-time
+      final elapsed = DateTime.now().difference(iterationStart).inMilliseconds;
+      final leftover = chunkMs - elapsed;
+      if (leftover > 0) {
+        await Future.delayed(Duration(milliseconds: leftover));
+      }
     }
 
-    // Stop, small flush delay
-    await dictation.stopRecording();
-    await Future.delayed(const Duration(milliseconds: 500));
+    // finalize
+    stream.inputFinished();
+    while (recognizer.isReady(stream)) {
+      recognizer.decode(stream);
+    }
+    final finalText = recognizer.getResult(stream).text.trim();
+    stream.free();
 
     final endTime = DateTime.now();
     final durationMs = endTime.difference(startTime).inMilliseconds;
-
-    // Dispose resources
-    await dictation.dispose();
-    await sub.cancel();
-
-    // 5) Build final metrics
     final audioMs = _estimateAudioMs(pcmBytes.length);
 
-    final metrics = BenchmarkMetrics.create(
+    final reference = await _loadTranscriptIfAny(wavFilePath);
+    return BenchmarkMetrics.create(
       modelName: modelName,
-      modelType: modelType,
-      wavFile: wavPath,
-      transcription: recognized.trim(),
+      modelType: 'online',
+      wavFile: wavFilePath,
+      transcription: finalText,
       reference: reference,
       processingDuration: Duration(milliseconds: durationMs),
       audioLengthMs: audioMs,
     );
-
-    return metrics;
   }
 
-  bool _hasRiffHeader(Uint8List bytes) {
-    if (bytes.length < 44) return false;
-    return (bytes[0] == 0x52 && // R
-        bytes[1] == 0x49 &&    // I
-        bytes[2] == 0x46 &&    // F
-        bytes[3] == 0x46);     // F
+  // --------------------------------------------------------------------------
+  // 4) Offline dictation approach:
+  //    We'll feed chunks in near real time, do repeated partial decode
+  //    with a rolling buffer or sliding window, or simpler "accumulate & decode each chunk."
+  // --------------------------------------------------------------------------
+  Future<BenchmarkMetrics> _processOneWavOfflineForDictation(
+    OfflineDictation dictation,
+    String wavFilePath,
+    String modelName,
+  ) async {
+    final startTime = DateTime.now();
+    final pcmBytes = await _loadAndParseWav(wavFilePath);
+    final chunkMs = 30; // feed 30ms at a time
+    final chunkSize = _bytesPerChunk(chunkMs);
+    List<Uint8List> chunks = [];
+    dictation.isRecording = true;
+    for (int offset = 0; offset < pcmBytes.length; offset += chunkSize) {
+      final end = (offset + chunkSize).clamp(0, pcmBytes.length);
+      chunks.add(pcmBytes.sublist(offset, end));
+    }
+
+    // We'll track recognized text by re-decoding the entire rolling buffer each time.
+    String finalTranscription = '';
+
+    for (final chunk in chunks) {
+      await Future.delayed(Duration(milliseconds: 30)); // simulate real-time
+      dictation.onAudioData(chunk);
+    }
+
+    // end
+    final endTime = DateTime.now();
+    final durationMs = endTime.difference(startTime).inMilliseconds;
+    final audioMs = _estimateAudioMs(pcmBytes.length);
+
+    final reference = await _loadTranscriptIfAny(wavFilePath);
+    dictation.isRecording = false;
+    return BenchmarkMetrics.create(
+      modelName: modelName,
+      modelType: 'offline',
+      wavFile: wavFilePath,
+      transcription: finalTranscription.trim(),
+      reference: reference,
+      processingDuration: Duration(milliseconds: durationMs),
+      audioLengthMs: audioMs,
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // Utility
+  // --------------------------------------------------------------------------
+  int _bytesPerChunk(int chunkMs) =>
+      ((16000 * 2) / 1000 * chunkMs).round(); // ~960
+
+  Future<Uint8List> _loadAndParseWav(String wavPath) async {
+    final wavData = await rootBundle.load(wavPath);
+    final allBytes = wavData.buffer.asUint8List();
+    if (allBytes.length < 44) {
+      throw Exception('WAV file too small or invalid header: $wavPath');
+    }
+    return allBytes.sublist(44); // naive skip
+  }
+
+  Float32List _int16bytesToFloat32(Uint8List bytes) {
+    final numSamples = bytes.length ~/ 2;
+    final floats = Float32List(numSamples);
+    final data = ByteData.view(bytes.buffer, bytes.offsetInBytes, bytes.length);
+
+    for (int i = 0; i < bytes.length; i += 2) {
+      final sample = data.getInt16(i, Endian.little);
+      floats[i >> 1] = sample / 32768.0;
+    }
+    return floats;
   }
 
   int _estimateAudioMs(int numBytes) {
-    // 16-bit => 2 bytes/sample, 16k => 16000 samples/sec
-    // sampleCount = numBytes / 2
-    // audioMs = (sampleCount * 1000) / 16000
-    final sampleCount = numBytes ~/ 2;
+    final sampleCount = numBytes ~/ 2; // 2 bytes per sample
     return (sampleCount * 1000) ~/ 16000;
   }
 
-  Future<String> _loadReference(String wavPath) async {
-    final srtFile = wavPath.replaceAll('.wav', '.srt');
+  Future<String> _loadTranscriptIfAny(String wavFile) async {
+    final srtPath = wavFile.replaceAll('.wav', '.srt');
     try {
-      final content = await rootBundle.loadString(srtFile);
-      return _stripSrt(content);
+      final raw = await rootBundle.loadString(srtPath);
+      return _stripSrt(raw);
     } catch (_) {
       return '';
     }
   }
 
-  String _stripSrt(String text) {
-    final lines = text.split('\n');
+  String _stripSrt(String raw) {
+    final lines = raw.split('\n');
     final sb = StringBuffer();
-    for (final line in lines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) continue;
-      if (RegExp(r'^\d+$').hasMatch(trimmed)) continue;
-      if (trimmed.contains('-->')) continue;
-      sb.write('$trimmed ');
+    for (final l in lines) {
+      final t = l.trim();
+      if (t.isEmpty) continue;
+      if (RegExp(r'^\d+$').hasMatch(t)) continue;
+      if (t.contains('-->')) continue;
+      sb.write('$t ');
     }
     return sb.toString().trim();
   }
 }
 
-// Riverpod provider
+// Provide it
 final dictationBenchmarkNotifierProvider =
     NotifierProvider<DictationBenchmarkNotifier, DictationBenchmarkState>(
   DictationBenchmarkNotifier.new,

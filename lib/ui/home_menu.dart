@@ -7,7 +7,7 @@ class HomeMenuScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final modelState = ref.watch(modelNotifierProvider);
+    final modelState = ref.watch(loadModelsNotifierProvider);
 
     // We'll read the dictation benchmark provider to get its Notifier,
     // or we can do so inline.
@@ -40,10 +40,8 @@ class HomeMenuScreen extends ConsumerWidget {
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => DictationScreen(
-                        onlineModels: modelState.onlineConfigs,
-                        offlineModels: modelState.offlineConfigs,
-                      ),
+                      builder: (_) =>
+                          DictationScreen(models: modelState.models),
                     ),
                   );
                 },
@@ -60,8 +58,8 @@ class HomeMenuScreen extends ConsumerWidget {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => DictationBenchmarkScreen(
-                          onlineConfigs: modelState.onlineConfigs,
-                          offlineConfigs: modelState.offlineConfigs,
+                          onlineConfigs: [],
+                          offlineConfigs: [],
                         ),
                       ),
                     );
@@ -80,7 +78,7 @@ class HomeMenuScreen extends ConsumerWidget {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => TranscriptionBenchmarkScreen(
-                          offlineConfigs: modelState.offlineConfigs,
+                          offlineConfigs: [],
                         ),
                       ),
                     );

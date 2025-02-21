@@ -1,18 +1,16 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
-import 'package:sherpa_onnx/sherpa_onnx.dart';
 
-/// A typical "ASR Tester" screen with a mic button for live dictation.
+// Provider to hold the currently selected model
+final selectedModelProvider = StateProvider<ModelBase?>((ref) => null);
+
 class DictationScreen extends ConsumerStatefulWidget {
-  final List<OnlineRecognizerConfig> onlineModels;
-  final List<OfflineRecognizerConfig> offlineModels;
+  final List<ModelBase> models;
 
-  const DictationScreen({
-    super.key,
-    required this.onlineModels,
-    required this.offlineModels,
-  });
+  const DictationScreen({super.key, required this.models});
 
   @override
   ConsumerState<DictationScreen> createState() => _DictationScreenState();
@@ -22,16 +20,24 @@ class _DictationScreenState extends ConsumerState<DictationScreen> {
   @override
   void initState() {
     super.initState();
-    // Request mic permission after first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(dictationNotifierProvider.notifier).requestMicPermission();
-    });
+  }
+
+  @override
+  void dispose() {
+    // Dispose all models
+    for (var model in widget.models) {
+      model.dispose();
+    }
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final dictationState = ref.watch(dictationNotifierProvider);
-    final dictationNotifier = ref.read(dictationNotifierProvider.notifier);
+    final selectedModel = ref.watch(selectedModelProvider);
+    final dictationState =
+        selectedModel != null && selectedModel is OfflineModel
+            ? ref.watch(dictationProvider(selectedModel))
+            : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -41,18 +47,13 @@ class _DictationScreenState extends ConsumerState<DictationScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // If model is loading, show progress
-            if (dictationState.isModelLoading)
-              const LinearProgressIndicator()
-            else
-              const SizedBox(height: 4),
-
             // Show recognized text
             Expanded(
               child: SingleChildScrollView(
                 reverse: true,
-                child: DictationDisplay(
-                  text: dictationState.recognizedText,
+                child: Text(
+                  dictationState?.transcript ?? '',
+                  style: Theme.of(context).textTheme.bodyLarge,
                 ),
               ),
             ),
@@ -60,52 +61,70 @@ class _DictationScreenState extends ConsumerState<DictationScreen> {
 
             // Model dropdown
             DropdownButtonFormField<String>(
-              value: dictationState.selectedModelName,
+              value: selectedModel?.modelName,
               decoration: const InputDecoration(
                 labelText: 'Select Model',
                 border: OutlineInputBorder(),
               ),
-              items: [
-                ...widget.offlineModels.map(
-                  (m) => DropdownMenuItem(
-                    value: m.modelName,
-                    child: Text(m.modelName),
-                  ),
-                ),
-                ...widget.onlineModels.map(
-                  (m) => DropdownMenuItem(
-                    value: m.modelName,
-                    child: Text(m.modelName),
-                  ),
-                ),
-              ],
-              onChanged: dictationState.isModelLoading
-                  ? null
-                  : (selected) {
-                      if (selected != null &&
-                          selected != dictationState.selectedModelName) {
-                        dictationNotifier.initializeDictation(
-                          modelName: selected,
-                          onlineModels: widget.onlineModels,
-                          offlineModels: widget.offlineModels,
-                        );
-                      }
-                    },
+              items: widget.models
+                  .map((e) => e.modelName)
+                  .map((name) => DropdownMenuItem(
+                        value: name,
+                        child: Text(name),
+                      ))
+                  .toList(),
+              onChanged: (selected) {
+                if (selected != null) {
+                  // Stop current dictation if any
+                  if (selectedModel != null && selectedModel is OfflineModel) {
+                    ref
+                        .read(dictationProvider(selectedModel).notifier)
+                        .stopDictation();
+                  }
+                  // Select new model
+                  ref.read(selectedModelProvider.notifier).state =
+                      widget.models.where((e) => e.modelName == selected).first;
+                }
+              },
             ),
             const SizedBox(height: 16),
 
-            // Start/Stop mic button
-            ElevatedButton.icon(
-              icon: Icon(
-                dictationState.isRecording ? Icons.stop : Icons.mic,
+            // Start/Stop button
+            if (selectedModel != null) ...[
+              ElevatedButton.icon(
+                icon: Icon(
+                  dictationState?.status == DictationStatus.recording
+                      ? Icons.stop
+                      : Icons.mic,
+                ),
+                label: Text(
+                  dictationState?.status == DictationStatus.recording
+                      ? 'Stop'
+                      : 'Start',
+                ),
+                onPressed: () {
+                  if (selectedModel is OfflineModel) {
+                    final notifier =
+                        ref.read(dictationProvider(selectedModel).notifier);
+                    if (dictationState?.status == DictationStatus.recording) {
+                      notifier.stopDictation();
+                    } else {
+                      notifier.startDictation();
+                    }
+                  }
+                },
               ),
-              label: Text(
-                dictationState.isRecording ? 'Stop' : 'Start',
+            ],
+
+            // Error message if any
+            if (dictationState?.errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  dictationState!.errorMessage!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ),
-              onPressed: dictationState.isModelLoading
-                  ? null
-                  : dictationNotifier.toggleRecording,
-            ),
           ],
         ),
       ),

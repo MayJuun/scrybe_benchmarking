@@ -166,6 +166,8 @@ class TranscriptionBenchmarkNotifier
       pcmBytes = allBytes;
     }
 
+    print('Transcription Benchmark pcmBytes length = ${pcmBytes.length}');
+
     final float32Data = _toFloat32List(pcmBytes);
 
     // Accept entire waveform
@@ -207,9 +209,9 @@ class TranscriptionBenchmarkNotifier
   bool _hasRiffHeader(Uint8List bytes) {
     if (bytes.length < 44) return false;
     return (bytes[0] == 0x52 && // R
-        bytes[1] == 0x49 &&    // I
-        bytes[2] == 0x46 &&    // F
-        bytes[3] == 0x46);     // F
+        bytes[1] == 0x49 && // I
+        bytes[2] == 0x46 && // F
+        bytes[3] == 0x46); // F
   }
 
   Float32List _toFloat32List(Uint8List pcmBytes) {
@@ -262,7 +264,7 @@ class TranscriptionBenchmarkNotifier
 }
 
 // The provider
-final transcriptionBenchmarkNotifierProvider =
-    NotifierProvider<TranscriptionBenchmarkNotifier, TranscriptionBenchmarkState>(
+final transcriptionBenchmarkNotifierProvider = NotifierProvider<
+    TranscriptionBenchmarkNotifier, TranscriptionBenchmarkState>(
   TranscriptionBenchmarkNotifier.new,
 );

@@ -1,144 +1,158 @@
+import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
+import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
+
+enum DictationStatus { idle, recording, error }
 
 class DictationState {
-  final bool isModelLoading;
-  final bool isRecording;
-  final String recognizedText;
-  final String? selectedModelName;
+  final DictationStatus status;
+  final String? errorMessage;
+  final String transcript;
 
   const DictationState({
-    this.isModelLoading = false,
-    this.isRecording = false,
-    this.recognizedText = '',
-    this.selectedModelName,
+    this.status = DictationStatus.idle,
+    this.errorMessage,
+    this.transcript = '',
   });
 
   DictationState copyWith({
-    bool? isModelLoading,
-    bool? isRecording,
-    String? recognizedText,
-    String? selectedModelName,
+    DictationStatus? status,
+    String? errorMessage,
+    String? transcript,
   }) {
     return DictationState(
-      isModelLoading: isModelLoading ?? this.isModelLoading,
-      isRecording: isRecording ?? this.isRecording,
-      recognizedText: recognizedText ?? this.recognizedText,
-      selectedModelName: selectedModelName ?? this.selectedModelName,
+      status: status ?? this.status,
+      errorMessage: errorMessage ?? this.errorMessage,
+      transcript: transcript ?? this.transcript,
     );
   }
 }
 
-class DictationNotifier extends Notifier<DictationState> {
-  DictationBase? _dictation;
+/// Uses an [OfflineModel], which presumably has an [OfflineRecognizer]
+/// you can retrieve via [model.recognizer].
+class DictationNotifier extends StateNotifier<DictationState> {
+  final Ref ref;
+  final OfflineModel model;
+  final int sampleRate;
 
-  @override
-  DictationState build() {
-    // Start with defaults
-    return const DictationState();
-  }
+  late final File _rawFile;
+  IOSink? _rawSink;
+  Timer? _stopTimer;
 
-  /// On mobile (Android/iOS), request microphone permission
-  Future<void> requestMicPermission() async {
-    if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-      // No mic permission needed
-      return;
-    }
-    final status = await Permission.microphone.request();
-    if (!status.isGranted) {
-      debugPrint('Microphone permission not granted');
-    }
-  }
+  DictationNotifier({
+    required this.ref,
+    required this.model,
+    this.sampleRate = 16000,
+  }) : super(const DictationState());
 
-  /// Initialize a dictation session with either an online or offline config,
-  /// based on the provided model name.
-  Future<void> initializeDictation({
-    required String modelName,
-    required List<OnlineRecognizerConfig> onlineModels,
-    required List<OfflineRecognizerConfig> offlineModels,
-  }) async {
-    // If already loading, skip
-    if (state.isModelLoading) return;
-
-    // Set loading true
-    state = state.copyWith(isModelLoading: true, recognizedText: '');
-
-    // Dispose old instance if any
-    await _dictation?.dispose();
-    _dictation = null;
+  Future<void> startDictation() async {
+    if (state.status == DictationStatus.recording) return;
 
     try {
-      // Try finding an offline model first
-      final offlineModel = offlineModels.firstWhere(
-        (m) => m.modelName == modelName,
-        orElse: () => throw Exception('Not found in offline'),
-      );
-      _dictation = OfflineDictation(
-        offlineRecognizer: OfflineRecognizer(offlineModel),
-      );
-      state = state.copyWith(selectedModelName: modelName);
-    } catch (_) {
-      // If not found offline, fall back to online
-      final onlineModel = onlineModels.firstWhere(
-        (m) => m.modelName == modelName,
-        orElse: () => throw Exception('Model not found in any config'),
-      );
-      _dictation = OnlineDictation(
-        onlineRecognizer: OnlineRecognizer(onlineModel),
-      );
-      state = state.copyWith(selectedModelName: modelName);
-    }
+      state = state.copyWith(status: DictationStatus.recording, transcript: '');
 
-    // Initialize the dictation object
-    await _dictation?.init();
-
-    // Subscribe to recognizedTextStream
-    _dictation?.recognizedTextStream.listen((partialOrFinalText) {
-      // For an online model, we treat the last line as a partial
-      if (_dictation is OnlineDictation) {
-        final lines = state.recognizedText.split('\n');
-        if (lines.isNotEmpty) lines.removeLast();
-        lines.add(partialOrFinalText);
-        final newText = lines.join('\n');
-        state = state.copyWith(recognizedText: newText);
-      } else {
-        // For offline, just keep appending new lines
-        final newText = '${state.recognizedText}\n$partialOrFinalText';
-        state = state.copyWith(recognizedText: newText);
+      // Prepare a temp file to store raw PCM
+      final dir = await getTemporaryDirectory();
+      _rawFile = File('${dir.path}/temp_raw.pcm');
+      if (_rawFile.existsSync()) {
+        _rawFile.deleteSync();
       }
-    });
+      _rawSink = _rawFile.openWrite();
 
-    // Done loading
-    state = state.copyWith(isModelLoading: false);
-  }
+      // Start recorder
+      final recorder = ref.read(recorderProvider.notifier);
+      await recorder.initialize(sampleRate: sampleRate);
+      await recorder.startRecorder();
+      await recorder.startStreaming(_onAudioData);
 
-  /// Start or stop recording from the mic
-  Future<void> toggleRecording() async {
-    if (_dictation == null) {
-      debugPrint('No dictation instance, cannot toggle');
-      return;
-    }
-
-    final isCurrentlyRecording = state.isRecording;
-    if (isCurrentlyRecording) {
-      await _dictation?.stopRecording();
-      state = state.copyWith(isRecording: false);
-    } else {
-      await _dictation?.startRecording();
-      state = state.copyWith(isRecording: true);
+      // Auto-stop after 10s, or remove if manual stop
+      _stopTimer?.cancel();
+      _stopTimer = Timer(const Duration(seconds: 10), stopDictation);
+    } catch (e) {
+      state = state.copyWith(
+        status: DictationStatus.error,
+        errorMessage: 'Failed to start: $e',
+      );
     }
   }
 
-  Future<void> dispose() async {
-    await _dictation?.dispose();
-    _dictation = null;
+  void _onAudioData(Uint8List audioData) {
+    // Write raw 16-bit PCM data to file
+    _rawSink?.add(audioData);
+  }
+
+  Future<void> stopDictation() async {
+    if (state.status != DictationStatus.recording) return;
+
+    try {
+      _stopTimer?.cancel();
+      _stopTimer = null;
+
+      // Stop recorder
+      final recorder = ref.read(recorderProvider.notifier);
+      await recorder.stopStreaming();
+      await recorder.stopRecorder();
+
+      // Close the file sink
+      await _rawSink?.flush();
+      await _rawSink?.close();
+      _rawSink = null;
+
+      // Read the entire raw file into memory
+      final rawBytes = await _rawFile.readAsBytes();
+
+      // Convert 16-bit PCM to float32
+      final float32 = _convertBytesToFloat32(rawBytes);
+
+      // Use the OfflineRecognizer from your OfflineModel
+      final recognizer = model.recognizer;
+      final stream = recognizer.createStream();
+
+      // Feed the in-memory float data
+      stream.acceptWaveform(samples: float32, sampleRate: sampleRate);
+      recognizer.decode(stream);
+
+      final result = recognizer.getResult(stream);
+      stream.free();
+      recognizer.free();
+
+      state = state.copyWith(
+        status: DictationStatus.idle,
+        transcript: result.text,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        status: DictationStatus.error,
+        errorMessage: 'Stop error: $e',
+      );
+    }
+  }
+
+  /// Convert raw 16-bit mono PCM bytes to Float32List in [-1..1]
+  Float32List _convertBytesToFloat32(Uint8List bytes) {
+    final length = bytes.length ~/ 2;
+    final data = ByteData.sublistView(bytes);
+
+    final floats = Float32List(length);
+    for (int i = 0; i < length; i++) {
+      final sample = data.getInt16(i * 2, Endian.little);
+      floats[i] = sample / 32768.0;
+    }
+    return floats;
+  }
+
+  @override
+  void dispose() {
+    _stopTimer?.cancel();
+    super.dispose();
   }
 }
 
-// Provider
-final dictationNotifierProvider =
-    NotifierProvider<DictationNotifier, DictationState>(DictationNotifier.new);
+final dictationProvider =
+    StateNotifierProvider.family<DictationNotifier, DictationState, OfflineModel>(
+  (ref, model) => DictationNotifier(ref: ref, model: model),
+);

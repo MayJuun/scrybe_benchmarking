@@ -1,6 +1,54 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 
+class OfflineModel extends ModelBase {
+  final OfflineRecognizer recognizer;
+  OfflineStream? stream;
+
+  OfflineModel({required OfflineRecognizerConfig config})
+      : recognizer = OfflineRecognizer(config),
+        super(
+            modelName:
+                (config.model.tokens.split('/')..removeLast()).removeLast());
+
+  @override
+  void doCreateStream() {
+    stream = recognizer.createStream();
+  }
+
+  /// Returns a pretty printed JSON string.
+  final JsonEncoder jsonEncoder = JsonEncoder.withIndent('    ');
+
+  /// Returns a pretty printed JSON string.
+  String prettyPrintJson(Map<String, dynamic> map) => jsonEncoder.convert(map);
+
+  @override
+  String processAudio(Uint8List audioData, int sampleRate) {
+    print('Processing audio data ${audioData.length} bytes');
+    if (stream == null) return '';
+
+    final samples = convertBytesToFloat32(audioData);
+    stream!.acceptWaveform(samples: samples, sampleRate: sampleRate);
+    recognizer.decode(stream!);
+    final result = recognizer.getResult(stream!);
+    print(prettyPrintJson(result.toJson()));
+    return result.text;
+  }
+
+  @override
+  void onRecordingStop() {
+    stream?.free();
+  }
+
+  @override
+  void dispose() {
+    stream?.free();
+    recognizer.free();
+  }
+}
 
 /// Creates configuration for offline Moonshine models.
 Future<OfflineRecognizerConfig> createOfflineMoonshineConfig({

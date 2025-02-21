@@ -7,7 +7,7 @@ class SplashScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final modelState = ref.watch(modelNotifierProvider);
+    final modelState = ref.watch(loadModelsNotifierProvider);
 
     if (modelState.isLoading) {
       return const Scaffold(

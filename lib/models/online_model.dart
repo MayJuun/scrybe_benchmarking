@@ -1,5 +1,61 @@
+import 'dart:typed_data';
+
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
+
+class OnlineModel extends ModelBase {
+  final OnlineRecognizer recognizer;
+  OnlineStream? stream;
+
+  OnlineModel({required OnlineRecognizerConfig config})
+      : recognizer = OnlineRecognizer(config),
+        super(
+            modelName:
+                (config.model.tokens.split('/')..removeLast()).removeLast());
+
+  @override
+  void doCreateStream() {
+    stream = recognizer.createStream();
+  }
+
+  @override
+  String processAudio(Uint8List audioData, int sampleRate) {
+    if (stream == null) return '';
+
+    final samples = convertBytesToFloat32(audioData);
+    stream!.acceptWaveform(samples: samples, sampleRate: sampleRate);
+
+    String result = '';
+    while (recognizer.isReady(stream!)) {
+      recognizer.decode(stream!);
+      result = recognizer.getResult(stream!).text;
+    }
+    return result;
+  }
+
+  String finalizeAndGetResult() {
+    if (stream == null) return '';
+
+    stream!.inputFinished();
+    while (recognizer.isReady(stream!)) {
+      recognizer.decode(stream!);
+    }
+    return recognizer.getResult(stream!).text;
+  }
+
+  @override
+  void onRecordingStop() {
+    stream?.inputFinished();
+    final finalText = finalizeAndGetResult();
+    stream?.free();
+  }
+
+  @override
+  void dispose() {
+    stream?.free();
+    recognizer.free();
+  }
+}
 
 /// Creates configuration for online transducer models.
 Future<OnlineRecognizerConfig> createOnlineTransducerConfig({
