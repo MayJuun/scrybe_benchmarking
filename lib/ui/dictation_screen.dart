@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
@@ -51,9 +49,18 @@ class _DictationScreenState extends ConsumerState<DictationScreen> {
             Expanded(
               child: SingleChildScrollView(
                 reverse: true,
-                child: Text(
-                  dictationState?.transcript ?? '',
-                  style: Theme.of(context).textTheme.bodyLarge,
+                child: DictationDisplay(
+                  text: dictationState?.fullTranscript ?? '',
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Show recognized text
+            Expanded(
+              child: SingleChildScrollView(
+                reverse: true,
+                child: DictationDisplay(
+                  text: dictationState?.currentChunkText ?? '',
                 ),
               ),
             ),

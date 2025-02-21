@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:typed_data';
+import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
@@ -9,23 +10,27 @@ enum DictationStatus { idle, recording, error }
 class DictationState {
   final DictationStatus status;
   final String? errorMessage;
-  final String transcript;
+  final String currentChunkText; // Text from current processing
+  final String fullTranscript; // Accumulated transcript
 
   const DictationState({
     this.status = DictationStatus.idle,
     this.errorMessage,
-    this.transcript = '',
+    this.currentChunkText = '',
+    this.fullTranscript = '',
   });
 
   DictationState copyWith({
     DictationStatus? status,
     String? errorMessage,
-    String? transcript,
+    String? currentChunkText,
+    String? fullTranscript,
   }) {
     return DictationState(
       status: status ?? this.status,
       errorMessage: errorMessage ?? this.errorMessage,
-      transcript: transcript ?? this.transcript,
+      currentChunkText: currentChunkText ?? this.currentChunkText,
+      fullTranscript: fullTranscript ?? this.fullTranscript,
     );
   }
 }
@@ -37,9 +42,8 @@ class DictationNotifier extends StateNotifier<DictationState> {
   final OfflineModel model;
   final int sampleRate;
 
-  final List<Uint8List> _audioChunks = [];
+  late final RollingCache _audioCache;
   OfflineStream? _currentStream;
-
   Timer? _stopTimer;
   Timer? _chunkTimer;
 
@@ -47,14 +51,21 @@ class DictationNotifier extends StateNotifier<DictationState> {
     required this.ref,
     required this.model,
     this.sampleRate = 16000,
-  }) : super(const DictationState());
+  }) : super(const DictationState()) {
+    _audioCache = RollingCache(
+      sampleRate: sampleRate,
+      bitDepth: 2, // 16-bit audio = 2 bytes
+      durationSeconds: 10,
+    );
+  }
 
   Future<void> startDictation() async {
     if (state.status == DictationStatus.recording) return;
 
     try {
-      state = state.copyWith(status: DictationStatus.recording, transcript: '');
-      _audioChunks.clear();
+      state =
+          state.copyWith(status: DictationStatus.recording, fullTranscript: '');
+      _audioCache.clear();
 
       // Create a single stream at the start
       _currentStream = model.recognizer.createStream();
@@ -76,7 +87,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
 
       // Auto-stop after 10s
       _stopTimer?.cancel();
-      _stopTimer = Timer(const Duration(seconds: 10), stopDictation);
+      _stopTimer = Timer(const Duration(seconds: 20), stopDictation);
 
       print('Dictation started successfully');
     } catch (e) {
@@ -97,42 +108,39 @@ class DictationNotifier extends StateNotifier<DictationState> {
 
     try {
       print('Received audio data chunk of size: ${audioData.length}');
-      _audioChunks.add(audioData);
+      _audioCache.addChunk(audioData);
     } catch (e) {
       print('Error processing audio data chunk: $e');
     }
   }
 
   void _processChunk() {
-    if (_currentStream == null || _audioChunks.isEmpty) return;
+    if (_audioCache.isEmpty) return;
 
     try {
-      // Combine chunks into one
-      final totalBytes = _audioChunks.fold<int>(0, (sum, c) => sum + c.length);
-      final rawBytes = Uint8List(totalBytes);
+      final audioData = _audioCache.getData();
+      print('Processing chunk of size: ${audioData.length} bytes');
 
-      int offset = 0;
-      for (final chunk in _audioChunks) {
-        rawBytes.setRange(offset, offset + chunk.length, chunk);
-        offset += chunk.length;
-      }
+      final samples = convertBytesToFloat32(audioData);
+      final newStream = model.recognizer.createStream();
 
-      print('Processing chunk of size: ${rawBytes.length} bytes');
+      newStream.acceptWaveform(samples: samples, sampleRate: sampleRate);
+      model.recognizer.decode(newStream);
 
-      // Convert to float32 and process
-      final float32 = _convertBytesToFloat32(rawBytes);
-      _currentStream!.acceptWaveform(samples: float32, sampleRate: sampleRate);
-      model.recognizer.decode(_currentStream!);
+      final result = model.recognizer.getResult(newStream);
+      final newText = result.text;
+      print('Processed chunk: $newText');
 
-      final result = model.recognizer.getResult(_currentStream!);
-      print('Processed chunk: ${result.text}');
+      // Naive text combination - could be improved
+      final combinedText = _combineTranscripts(state.fullTranscript, newText);
 
       state = state.copyWith(
         status: DictationStatus.recording,
-        transcript: result.text,
+        currentChunkText: newText,
+        fullTranscript: combinedText,
       );
 
-      _audioChunks.clear();
+      newStream.free();
     } catch (e) {
       print('Error during chunk processing: $e');
       state = state.copyWith(
@@ -140,6 +148,32 @@ class DictationNotifier extends StateNotifier<DictationState> {
         errorMessage: 'Error processing audio chunk: $e',
       );
     }
+  }
+
+  String _combineTranscripts(String existing, String newText) {
+    if (existing.isEmpty) return newText;
+
+    // Split into words for comparison
+    final existingWords = existing.split(' ');
+    final newWords = newText.split(' ');
+
+    // Look for overlap at the end of existing and start of new
+    for (int overlapLength = min(existingWords.length, newWords.length);
+        overlapLength > 0;
+        overlapLength--) {
+      final existingEnd =
+          existingWords.sublist(existingWords.length - overlapLength);
+      final newStart = newWords.sublist(0, overlapLength);
+
+      if (listEquals(existingEnd, newStart)) {
+        // Found overlap, combine without duplicating
+        final remainingNewWords = newWords.sublist(overlapLength);
+        return '$existing ${remainingNewWords.join(' ')}';
+      }
+    }
+
+    // No overlap found, just append with separator
+    return '$existing | $newText';
   }
 
   Future<void> stopDictation() async {
@@ -152,7 +186,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
       _chunkTimer = null;
 
       // Process any remaining audio
-      if (_audioChunks.isNotEmpty) {
+      if (_audioCache.isNotEmpty) {
         _processChunk();
       }
 
@@ -161,9 +195,10 @@ class DictationNotifier extends StateNotifier<DictationState> {
       await recorder.stopStreaming();
       await recorder.stopRecorder();
 
-      // Clean up stream
+      // Clean up
       _currentStream?.free();
       _currentStream = null;
+      _audioCache.clear();
 
       state = state.copyWith(status: DictationStatus.idle);
     } catch (e) {
@@ -175,24 +210,12 @@ class DictationNotifier extends StateNotifier<DictationState> {
     }
   }
 
-  /// Convert raw 16-bit mono PCM bytes to Float32List in [-1..1]
-  Float32List _convertBytesToFloat32(Uint8List bytes) {
-    final length = bytes.length ~/ 2;
-    final data = ByteData.sublistView(bytes);
-
-    final floats = Float32List(length);
-    for (int i = 0; i < length; i++) {
-      final sample = data.getInt16(i * 2, Endian.little);
-      floats[i] = sample / 32768.0;
-    }
-    return floats;
-  }
-
   @override
   void dispose() {
     _stopTimer?.cancel();
     _chunkTimer?.cancel();
     _currentStream?.free();
+    _audioCache.clear();
     super.dispose();
   }
 }

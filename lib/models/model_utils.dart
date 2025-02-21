@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:sherpa_onnx/sherpa_onnx.dart';
 
 Future<String> copyAssetFile(String modelName, String file) async {
   final Directory directory = await getApplicationDocumentsDirectory();
@@ -23,18 +22,3 @@ Future<String> copyAssetFile(String modelName, String file) async {
 
   return target;
 }
-
-extension OfflineName on OfflineRecognizerConfig {
-  String get modelName {
-    final splitTokens = model.tokens.split('/');
-    return splitTokens[splitTokens.length - 2];
-  }
-}
-
-extension OnlineName on OnlineRecognizerConfig {
-  String get modelName {
-    final splitTokens = model.tokens.split('/');
-    return splitTokens[splitTokens.length - 2];
-  }
-}
-

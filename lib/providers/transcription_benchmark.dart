@@ -101,7 +101,7 @@ class TranscriptionBenchmarkNotifier
           final metrics = await _transcribeFileOffline(
             wavPath: wavPath,
             offlineRecognizer: offlineRecognizer,
-            modelName: cfg.modelName,
+            modelName: '',
           );
           allMetrics.add(metrics);
 

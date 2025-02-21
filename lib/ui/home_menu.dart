@@ -11,8 +11,8 @@ class HomeMenuScreen extends ConsumerWidget {
 
     // We'll read the dictation benchmark provider to get its Notifier,
     // or we can do so inline.
-    final dictationBenchNotifier =
-        ref.read(dictationBenchmarkNotifierProvider.notifier);
+    // final dictationBenchNotifier =
+    //     ref.read(dictationBenchmarkNotifierProvider.notifier);
 
     // Similarly for transcription if you want to pre-load files or something
     final transcriptionBenchNotifier =
@@ -53,16 +53,16 @@ class HomeMenuScreen extends ConsumerWidget {
               ElevatedButton(
                 onPressed: () async {
                   // Load test files first if needed
-                  await dictationBenchNotifier.loadTestFiles();
+                  // await dictationBenchNotifier.loadTestFiles();
                   if (context.mounted) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => DictationBenchmarkScreen(
-                          onlineConfigs: [],
-                          offlineConfigs: [],
-                        ),
-                      ),
-                    );
+                    // Navigator.of(context).push(
+                    //   MaterialPageRoute(
+                    //     builder: (_) => DictationBenchmarkScreen(
+                    //       onlineConfigs: [],
+                    //       offlineConfigs: [],
+                    //     ),
+                    //   ),
+                    // );
                   }
                 },
                 child: const Text('Dictation Benchmarks'),

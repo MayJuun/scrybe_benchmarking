@@ -22,16 +22,6 @@ abstract class ModelBase {
   // Audio processing
   String processAudio(Uint8List audioData, int sampleRate);
 
-  // Utility function for both implementations
-  Float32List convertBytesToFloat32(Uint8List bytes) {
-    final Float32List float32List = Float32List(bytes.length ~/ 2);
-    final ByteData byteData = ByteData.sublistView(bytes);
-
-    for (var i = 0; i < float32List.length; i++) {
-      float32List[i] = byteData.getInt16(i * 2, Endian.little) / 32768.0;
-    }
-    return float32List;
-  }
 
   void dispose();
 }

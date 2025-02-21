@@ -24,9 +24,9 @@ class DictationDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,  // Take full width
+      width: double.infinity, // Take full width
       constraints: const BoxConstraints(
-        minHeight: 200,  // Minimum height
+        minHeight: 200, // Minimum height
       ),
       decoration: BoxDecoration(
         color: Colors.grey[50],
