@@ -37,10 +37,11 @@ class DictationNotifier extends StateNotifier<DictationState> {
   final OfflineModel model;
   final int sampleRate;
 
-  // Instead of writing to a file, we store chunks in memory
   final List<Uint8List> _audioChunks = [];
+  OfflineStream? _currentStream;
 
   Timer? _stopTimer;
+  Timer? _chunkTimer;
 
   DictationNotifier({
     required this.ref,
@@ -53,8 +54,13 @@ class DictationNotifier extends StateNotifier<DictationState> {
 
     try {
       state = state.copyWith(status: DictationStatus.recording, transcript: '');
+      _audioChunks.clear();
 
-      _audioChunks.clear(); // ensure empty at start
+      // Create a single stream at the start
+      _currentStream = model.recognizer.createStream();
+      if (_currentStream == null) {
+        throw Exception('Failed to create recognition stream');
+      }
 
       // Start recorder
       final recorder = ref.read(recorderProvider.notifier);
@@ -62,35 +68,46 @@ class DictationNotifier extends StateNotifier<DictationState> {
       await recorder.startRecorder();
       await recorder.startStreaming(_onAudioData);
 
-      // Auto-stop after 10s (remove if you want manual stop)
+      // Set a timer to process small chunks
+      _chunkTimer?.cancel();
+      _chunkTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        _processChunk();
+      });
+
+      // Auto-stop after 10s
       _stopTimer?.cancel();
       _stopTimer = Timer(const Duration(seconds: 10), stopDictation);
+
+      print('Dictation started successfully');
     } catch (e) {
+      // Clean up stream if creation failed
+      _currentStream?.free();
+      _currentStream = null;
+
       state = state.copyWith(
         status: DictationStatus.error,
         errorMessage: 'Failed to start: $e',
       );
+      print('Error during dictation start: $e');
     }
   }
 
   void _onAudioData(Uint8List audioData) {
-    // Collect all raw PCM chunks in memory
-    _audioChunks.add(audioData);
-  }
-
-  Future<void> stopDictation() async {
     if (state.status != DictationStatus.recording) return;
 
     try {
-      _stopTimer?.cancel();
-      _stopTimer = null;
+      print('Received audio data chunk of size: ${audioData.length}');
+      _audioChunks.add(audioData);
+    } catch (e) {
+      print('Error processing audio data chunk: $e');
+    }
+  }
 
-      // Stop recorder
-      final recorder = ref.read(recorderProvider.notifier);
-      await recorder.stopStreaming();
-      await recorder.stopRecorder();
+  void _processChunk() {
+    if (_currentStream == null || _audioChunks.isEmpty) return;
 
-      // Combine all chunks into one Uint8List
+    try {
+      // Combine chunks into one
       final totalBytes = _audioChunks.fold<int>(0, (sum, c) => sum + c.length);
       final rawBytes = Uint8List(totalBytes);
 
@@ -100,26 +117,57 @@ class DictationNotifier extends StateNotifier<DictationState> {
         offset += chunk.length;
       }
 
-      // Convert 16-bit PCM to float32
+      print('Processing chunk of size: ${rawBytes.length} bytes');
+
+      // Convert to float32 and process
       final float32 = _convertBytesToFloat32(rawBytes);
+      _currentStream!.acceptWaveform(samples: float32, sampleRate: sampleRate);
+      model.recognizer.decode(_currentStream!);
 
-      // Use the OfflineRecognizer from your OfflineModel
-      final recognizer = model.recognizer;
-      final stream = recognizer.createStream();
-
-      // Feed the in-memory float data
-      stream.acceptWaveform(samples: float32, sampleRate: sampleRate);
-      recognizer.decode(stream);
-
-      final result = recognizer.getResult(stream);
-      stream.free();
-      recognizer.free();
+      final result = model.recognizer.getResult(_currentStream!);
+      print('Processed chunk: ${result.text}');
 
       state = state.copyWith(
-        status: DictationStatus.idle,
+        status: DictationStatus.recording,
         transcript: result.text,
       );
+
+      _audioChunks.clear();
     } catch (e) {
+      print('Error during chunk processing: $e');
+      state = state.copyWith(
+        status: DictationStatus.error,
+        errorMessage: 'Error processing audio chunk: $e',
+      );
+    }
+  }
+
+  Future<void> stopDictation() async {
+    if (state.status != DictationStatus.recording) return;
+
+    try {
+      _stopTimer?.cancel();
+      _stopTimer = null;
+      _chunkTimer?.cancel();
+      _chunkTimer = null;
+
+      // Process any remaining audio
+      if (_audioChunks.isNotEmpty) {
+        _processChunk();
+      }
+
+      // Stop recorder
+      final recorder = ref.read(recorderProvider.notifier);
+      await recorder.stopStreaming();
+      await recorder.stopRecorder();
+
+      // Clean up stream
+      _currentStream?.free();
+      _currentStream = null;
+
+      state = state.copyWith(status: DictationStatus.idle);
+    } catch (e) {
+      print('Error stopping dictation: $e');
       state = state.copyWith(
         status: DictationStatus.error,
         errorMessage: 'Stop error: $e',
@@ -143,11 +191,13 @@ class DictationNotifier extends StateNotifier<DictationState> {
   @override
   void dispose() {
     _stopTimer?.cancel();
+    _chunkTimer?.cancel();
+    _currentStream?.free();
     super.dispose();
   }
 }
 
-final dictationProvider =
-    StateNotifierProvider.family<DictationNotifier, DictationState, OfflineModel>(
+final dictationProvider = StateNotifierProvider.family<DictationNotifier,
+    DictationState, OfflineModel>(
   (ref, model) => DictationNotifier(ref: ref, model: model),
 );
