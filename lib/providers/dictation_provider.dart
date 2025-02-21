@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
@@ -39,8 +37,9 @@ class DictationNotifier extends StateNotifier<DictationState> {
   final OfflineModel model;
   final int sampleRate;
 
-  late final File _rawFile;
-  IOSink? _rawSink;
+  // Instead of writing to a file, we store chunks in memory
+  final List<Uint8List> _audioChunks = [];
+
   Timer? _stopTimer;
 
   DictationNotifier({
@@ -55,13 +54,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
     try {
       state = state.copyWith(status: DictationStatus.recording, transcript: '');
 
-      // Prepare a temp file to store raw PCM
-      final dir = await getTemporaryDirectory();
-      _rawFile = File('${dir.path}/temp_raw.pcm');
-      if (_rawFile.existsSync()) {
-        _rawFile.deleteSync();
-      }
-      _rawSink = _rawFile.openWrite();
+      _audioChunks.clear(); // ensure empty at start
 
       // Start recorder
       final recorder = ref.read(recorderProvider.notifier);
@@ -69,7 +62,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
       await recorder.startRecorder();
       await recorder.startStreaming(_onAudioData);
 
-      // Auto-stop after 10s, or remove if manual stop
+      // Auto-stop after 10s (remove if you want manual stop)
       _stopTimer?.cancel();
       _stopTimer = Timer(const Duration(seconds: 10), stopDictation);
     } catch (e) {
@@ -81,8 +74,8 @@ class DictationNotifier extends StateNotifier<DictationState> {
   }
 
   void _onAudioData(Uint8List audioData) {
-    // Write raw 16-bit PCM data to file
-    _rawSink?.add(audioData);
+    // Collect all raw PCM chunks in memory
+    _audioChunks.add(audioData);
   }
 
   Future<void> stopDictation() async {
@@ -97,13 +90,15 @@ class DictationNotifier extends StateNotifier<DictationState> {
       await recorder.stopStreaming();
       await recorder.stopRecorder();
 
-      // Close the file sink
-      await _rawSink?.flush();
-      await _rawSink?.close();
-      _rawSink = null;
+      // Combine all chunks into one Uint8List
+      final totalBytes = _audioChunks.fold<int>(0, (sum, c) => sum + c.length);
+      final rawBytes = Uint8List(totalBytes);
 
-      // Read the entire raw file into memory
-      final rawBytes = await _rawFile.readAsBytes();
+      int offset = 0;
+      for (final chunk in _audioChunks) {
+        rawBytes.setRange(offset, offset + chunk.length, chunk);
+        offset += chunk.length;
+      }
 
       // Convert 16-bit PCM to float32
       final float32 = _convertBytesToFloat32(rawBytes);
