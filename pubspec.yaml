@@ -45,10 +45,10 @@ flutter:
     # - assets/models/sherpa-onnx-nemo-ctc-en-conformer-small/tokens.txt
 
     # sherpa-onnx-nemo-fast-conformer-transducer-en-24500 (offline)
-    # - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/encoder.onnx
-    # - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/decoder.onnx
-    # - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/joiner.onnx
-    # - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/tokens.txt
+    - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/encoder.onnx
+    - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/decoder.onnx
+    - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/joiner.onnx
+    - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/tokens.txt
 
     # sherpa-onnx-nemo-streaming-fast-conformer-ctc-en-80ms (online)
     # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-ctc-en-80ms/model.onnx

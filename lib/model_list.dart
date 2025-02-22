@@ -42,21 +42,21 @@ Future<List<OfflineModel>> loadOfflineConfigs() async {
   //   print('Failed to load NeMo CTC small model: $e');
   // }
 
-  // // Nemo Fast Conformer Transducer (sherpa-onnx-nemo-fast-conformer-transducer-en-24500)
-  // try {
-  //   configs.add(await createOfflineTransducerConfig(
-  //     modelName: 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500',
-  //     encoder: 'encoder.onnx',
-  //     decoder: 'decoder.onnx',
-  //     joiner: 'joiner.onnx',
-  //     tokens: 'tokens.txt',
-  //     numThreads: 1,
-  //     modelType: 'nemo_transducer',
-  //     debug: true,
-  //   ));
-  // } catch (e) {
-  //   print('Failed to load Nemo fast conformer transducer model: $e');
-  // }
+  // Nemo Fast Conformer Transducer (sherpa-onnx-nemo-fast-conformer-transducer-en-24500)
+  try {
+    configs.add(await createOfflineTransducerConfig(
+      modelName: 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500',
+      encoder: 'encoder.onnx',
+      decoder: 'decoder.onnx',
+      joiner: 'joiner.onnx',
+      tokens: 'tokens.txt',
+      numThreads: 1,
+      modelType: 'nemo_transducer',
+      debug: true,
+    ));
+  } catch (e) {
+    print('Failed to load Nemo fast conformer transducer model: $e');
+  }
 
   // Whisper Medium (sherpa-onnx-whisper-medium.en.int8)
   // try {

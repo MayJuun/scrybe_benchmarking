@@ -10,9 +10,13 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   final Ref ref;
   final OfflineModel model;
   final int sampleRate;
-  final TranscriptionConfig transcriptionConfig =
-      TranscriptionConfig(minOverlapWords: 3, minWordLength: 2, debug: true);
-  late final TranscriptionCombiner _transcriptionCombiner;
+  late final NGramTranscriptionCombiner _transcriptionCombiner =
+      NGramTranscriptionCombiner(
+          config: NGramTranscriptionConfig(
+              ngramSize: 3,
+              similarityThreshold: 0.85,
+              debug: true // Set to true to see matching details
+              ));
 
   late final RollingCache _audioCache;
   Timer? _stopTimer;
@@ -28,7 +32,6 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
       bitDepth: 2, // 16-bit audio = 2 bytes
       durationSeconds: 10,
     );
-    _transcriptionCombiner = TranscriptionCombiner(config: transcriptionConfig);
   }
 
   Future<void> startDictation() async {
@@ -42,7 +45,7 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
       // Start recorder
       final recorder = ref.read(mockRecorderProvider.notifier);
       await recorder.setAudioFile(
-          '/home/grey/dev/scrybe_benchmarking/assets/dictation_test/test_files/009.wav');
+          '/home/grey/dev/scrybe_benchmarking/assets/dictation_test/test_files/002.wav');
       await recorder.initialize(sampleRate: sampleRate);
       await recorder.startRecorder();
       await recorder.startStreaming(_onAudioData);
@@ -55,7 +58,7 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
 
       // Auto-stop after 10s
       _stopTimer?.cancel();
-      _stopTimer = Timer(const Duration(seconds: 20), stopDictation);
+      _stopTimer = Timer(const Duration(seconds: 80), stopDictation);
 
       print('Dictation started successfully');
     } catch (e) {
@@ -88,7 +91,7 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
 
       state = state.copyWith(
         status: DictationStatus.recording,
-        currentChunkText: transcriptionResult.text,
+        currentChunkText: transcriptionResult,
         fullTranscript: combinedText,
       );
     } catch (e) {

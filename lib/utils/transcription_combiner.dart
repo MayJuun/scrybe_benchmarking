@@ -1,206 +1,180 @@
-class TranscriptionConfig {
-  final double timestampThreshold;
-  final int minOverlapWords;
-  final bool useSentenceBoundaries;
-  final bool debug;
-  final int minWordLength; // New: ignore very short words in overlap detection
+import 'dart:math';
 
-  const TranscriptionConfig({
-    this.timestampThreshold = 1.0,
+class NGramTranscriptionConfig {
+  final int ngramSize;
+  final double similarityThreshold;
+  final int minOverlapWords;
+  final bool debug;
+
+  const NGramTranscriptionConfig({
+    this.ngramSize = 3,
+    this.similarityThreshold = 0.85,
     this.minOverlapWords = 3,
-    this.useSentenceBoundaries = true,
     this.debug = false,
-    this.minWordLength = 2, // Ignore single-letter words by default
   });
 }
 
-class TranscriptionCombiner {
-  final TranscriptionConfig config;
-  String? _previousText; // Track the previous result for better deduplication
+class NGramTranscriptionCombiner {
+  final NGramTranscriptionConfig config;
+  String _previousText = '';
 
-  TranscriptionCombiner({TranscriptionConfig? config})
-      : config = config ?? const TranscriptionConfig();
+  NGramTranscriptionCombiner({NGramTranscriptionConfig? config})
+      : config = config ?? const NGramTranscriptionConfig();
 
-  String combineTranscripts(String existing, TranscriptionResult newResult) {
-    if (config.debug) {
-      print('\nCombining transcripts:');
-      print('Existing: "$existing"');
-      print('New result: "${newResult.text}"');
-    }
-
-    if (existing.isEmpty) {
-      _previousText = newResult.text;
-      return newResult.text;
-    }
-
-    // If the new result is empty or identical to previous, return existing
-    if (newResult.text.isEmpty || newResult.text == _previousText) {
+  String combineTranscripts(String existing, String newText) {
+    if (newText.isEmpty || newText == _previousText) {
       return existing;
     }
 
-    // Clean up text
+    // Clean and normalize texts
+    final cleanNew = _cleanText(newText);
     final cleanExisting = _cleanText(existing);
-    final cleanNew = _cleanText(newResult.text);
 
-    // Store this result for next comparison
-    _previousText = cleanNew;
-
-    // Find the longest common substring between existing and new text
-    final lcs = _longestCommonSubstring(cleanExisting, cleanNew);
-
-    if (lcs.length > 20) {
-      // If we found a substantial common part
-      final newStart = cleanNew.indexOf(lcs) + lcs.length;
-      if (newStart < cleanNew.length) {
-        // Only add the part after the common substring
-        return '$cleanExisting ${cleanNew.substring(newStart)}';
-      }
-      return cleanExisting;
+    if (cleanExisting.isEmpty) {
+      _updateState(cleanNew);
+      return cleanNew;
     }
 
-    // If texts are very different, look for sentence boundaries
-    if (config.useSentenceBoundaries) {
-      final sentences = cleanExisting.split(RegExp(r'[.!?] ')).toList();
-      if (sentences.isNotEmpty) {
-        final lastSentence = sentences.last;
-        if (cleanNew.contains(lastSentence)) {
-          // If new text contains the last sentence, start from there
-          final newPart = cleanNew
-              .substring(cleanNew.indexOf(lastSentence) + lastSentence.length);
-          if (newPart.isNotEmpty) {
-            return cleanExisting + newPart;
-          }
+    // Generate n-grams for both texts
+    final existingNgrams = _generateNgrams(cleanExisting);
+    final newNgrams = _generateNgrams(cleanNew);
+
+    // Find the best overlap point
+    final (overlapStart, overlapScore) = _findBestOverlap(existingNgrams, newNgrams);
+
+    if (config.debug) {
+      print('Best overlap score: $overlapScore at position: $overlapStart');
+      print('Existing n-grams: $existingNgrams');
+      print('New n-grams: $newNgrams');
+    }
+
+    // If we found a good overlap point
+    if (overlapScore >= config.similarityThreshold) {
+      final result = _mergeAtOverlap(cleanExisting, cleanNew, overlapStart);
+      _updateState(cleanNew);
+      return result;
+    }
+
+    // Check if this is a progressive update
+    if (_isProgressiveUpdate(cleanExisting, cleanNew)) {
+      _updateState(cleanNew);
+      return cleanNew;
+    }
+
+    _updateState(cleanNew);
+    return cleanExisting;
+  }
+
+  List<String> _generateNgrams(String text) {
+    final words = text.split(' ');
+    if (words.length < config.ngramSize) {
+      return [text];
+    }
+
+    return List.generate(
+      words.length - config.ngramSize + 1,
+      (i) => words.sublist(i, i + config.ngramSize).join(' '),
+    );
+  }
+
+  (int, double) _findBestOverlap(List<String> existingNgrams, List<String> newNgrams) {
+    var bestScore = 0.0;
+    var bestPosition = -1;
+
+    // Only look at the last portion of existing text for potential overlaps
+    final startIdx = max(0, existingNgrams.length - 20);
+    
+    for (var i = startIdx; i < existingNgrams.length; i++) {
+      for (var j = 0; j < min(newNgrams.length, 20); j++) {
+        final score = _calculateSimilarity(existingNgrams[i], newNgrams[j]);
+        if (score > bestScore) {
+          bestScore = score;
+          bestPosition = i;
         }
       }
     }
 
-    // If the new text is completely different and seems to be a continuation
-    if (!cleanNew.contains(cleanExisting.split(' ').last) &&
-        !cleanExisting.contains(cleanNew)) {
-      return '$cleanExisting $cleanNew';
-    }
+    return (bestPosition, bestScore);
+  }
 
-    return cleanExisting;
+  double _calculateSimilarity(String ngram1, String ngram2) {
+    if (ngram1 == ngram2) return 1.0;
+    
+    // Convert to lowercase for comparison
+    ngram1 = ngram1.toLowerCase();
+    ngram2 = ngram2.toLowerCase();
+    
+    // Calculate word-level similarity
+    final words1 = ngram1.split(' ');
+    final words2 = ngram2.split(' ');
+    
+    var matchingWords = 0;
+    for (var i = 0; i < words1.length; i++) {
+      if (i < words2.length && words1[i] == words2[i]) {
+        matchingWords++;
+      }
+    }
+    
+    return matchingWords / config.ngramSize;
+  }
+
+  String _mergeAtOverlap(String existing, String newText, int overlapPosition) {
+    final existingWords = existing.split(' ');
+    final newWords = newText.split(' ');
+    
+    // Take existing text up to overlap point
+    final prefix = existingWords.take(overlapPosition).join(' ');
+    
+    // Find where overlap ends in new text
+    final overlapNgram = existingWords
+        .skip(overlapPosition)
+        .take(config.ngramSize)
+        .join(' ');
+    
+    var newTextStart = 0;
+    for (var i = 0; i < newWords.length - config.ngramSize + 1; i++) {
+      final currentNgram = newWords.skip(i).take(config.ngramSize).join(' ');
+      if (_calculateSimilarity(overlapNgram, currentNgram) >= config.similarityThreshold) {
+        newTextStart = i + config.ngramSize;
+        break;
+      }
+    }
+    
+    // Combine the non-overlapping parts
+    final suffix = newWords.skip(newTextStart).join(' ');
+    return suffix.isEmpty ? existing : '$prefix $overlapNgram $suffix'.trim();
+  }
+
+  bool _isProgressiveUpdate(String existing, String newText) {
+    if (newText.length <= existing.length) return false;
+    
+    // Check if new text starts with most of existing text
+    final existingNgrams = _generateNgrams(existing);
+    final newStartNgrams = _generateNgrams(
+      newText.substring(0, min(newText.length, existing.length))
+    );
+    
+    var matchCount = 0;
+    final minNgrams = min(existingNgrams.length, newStartNgrams.length);
+    
+    for (var i = 0; i < minNgrams; i++) {
+      if (_calculateSimilarity(existingNgrams[i], newStartNgrams[i]) >= config.similarityThreshold) {
+        matchCount++;
+      }
+    }
+    
+    return matchCount / minNgrams >= config.similarityThreshold;
+  }
+
+  void _updateState(String newText) {
+    _previousText = newText;
   }
 
   String _cleanText(String text) {
     return text
         .replaceAll(RegExp(r'\s+'), ' ')
         .replaceAll(RegExp(r'[.!?]+\s*'), '. ')
-        .replaceAll(RegExp(r'\|\s*'), ' ') // Remove any separators
+        .replaceAll(RegExp(r'\|\s*'), ' ')
         .trim();
-  }
-
-  String _longestCommonSubstring(String s1, String s2) {
-    if (s1.isEmpty || s2.isEmpty) return '';
-
-    var longest = '';
-    var table = List.generate(s1.length, (i) => List.filled(s2.length, 0));
-
-    for (var i = 0; i < s1.length; i++) {
-      for (var j = 0; j < s2.length; j++) {
-        if (s1[i] == s2[j]) {
-          table[i][j] = (i == 0 || j == 0) ? 1 : table[i - 1][j - 1] + 1;
-          if (table[i][j] > longest.length) {
-            longest = s1.substring(i - table[i][j] + 1, i + 1);
-          }
-        }
-      }
-    }
-
-    return longest;
-  }
-}
-
-extension IterableExtension<T> on Iterable<T> {
-  Iterable<T> takeLast(int n) {
-    if (length <= n) return this;
-    return skip(length - n);
-  }
-}
-
-class TokenInfo {
-  final String text;
-  final double? timestamp; // Optional since not all models provide timestamps
-  final int position; // Position in sequence
-
-  TokenInfo({
-    required this.text,
-    this.timestamp,
-    required this.position,
-  });
-
-  @override
-  String toString() =>
-      'TokenInfo(text: $text, timestamp: $timestamp, position: $position)';
-}
-
-class TranscriptionResult {
-  final String text;
-  final List<TokenInfo> tokens;
-  final bool hasTimestamps;
-
-  TranscriptionResult({
-    required this.text,
-    required this.tokens,
-    required this.hasTimestamps,
-  });
-
-  TranscriptionResult.empty()
-      : text = '',
-        tokens = [],
-        hasTimestamps = false;
-
-  // Create a simple text-only result
-  factory TranscriptionResult.text(String text) {
-    return TranscriptionResult(
-      text: text,
-      tokens: [TokenInfo(text: text, position: 0)],
-      hasTimestamps: false,
-    );
-  }
-
-  // Factory to create from model result
-  factory TranscriptionResult.fromJson(Map<String, dynamic> json) {
-    try {
-      final List<dynamic> tokenTexts = json['tokens'] as List;
-      final List<dynamic> timestamps = json['timestamps'] as List? ?? [];
-      final bool hasTimestamps = timestamps.isNotEmpty;
-
-      // Validate token and timestamp counts match
-      if (hasTimestamps && tokenTexts.length != timestamps.length) {
-        print(
-            'Warning: Token count (${tokenTexts.length}) doesn\'t match timestamp count (${timestamps.length})');
-        return TranscriptionResult.text(json['text'] as String);
-      }
-
-      final tokens = List<TokenInfo>.generate(
-        tokenTexts.length,
-        (i) => TokenInfo(
-          text: tokenTexts[i] as String,
-          timestamp: hasTimestamps ? (timestamps[i] as num).toDouble() : null,
-          position: i,
-        ),
-      );
-
-      return TranscriptionResult(
-        text: json['text'] as String,
-        tokens: tokens,
-        hasTimestamps: hasTimestamps,
-      );
-    } catch (e) {
-      print('Error parsing transcription result: $e');
-      return TranscriptionResult.text(json['text'] as String);
-    }
-  }
-
-  void debugPrint() {
-    print('TranscriptionResult:');
-    print('Text: $text');
-    print('Has timestamps: $hasTimestamps');
-    print('Tokens:');
-    for (var token in tokens) {
-      print('  ${token.toString()}');
-    }
   }
 }

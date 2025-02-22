@@ -25,8 +25,8 @@ class OnlineModel extends ModelBase {
   }
 
   @override
-  TranscriptionResult processAudio(Uint8List audioData, int sampleRate) {
-    if (stream == null) return TranscriptionResult.empty();
+  String processAudio(Uint8List audioData, int sampleRate) {
+    if (stream == null) return '';
 
     final samples = convertBytesToFloat32(audioData);
     stream!.acceptWaveform(samples: samples, sampleRate: sampleRate);
@@ -36,9 +36,7 @@ class OnlineModel extends ModelBase {
       recognizer.decode(stream!);
       result = recognizer.getResult(stream!);
     }
-    return result == null
-        ? TranscriptionResult.empty()
-        : TranscriptionResult.fromJson(result.toJson());
+    return result?.text ?? '';
   }
 
   String finalizeAndGetResult() {

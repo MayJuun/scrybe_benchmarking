@@ -20,8 +20,8 @@ class OfflineModel extends ModelBase {
   String prettyPrintJson(Map<String, dynamic> map) => jsonEncoder.convert(map);
 
   @override
-  TranscriptionResult processAudio(Uint8List audioData, int sampleRate) {
-    print('Processing audio data ${audioData.length} bytes');
+  String processAudio(Uint8List audioData, int sampleRate) {
+    // print('Processing audio data ${audioData.length} bytes');
     final stream = recognizer.createStream();
 
     // Convert audio data to samples
@@ -35,13 +35,10 @@ class OfflineModel extends ModelBase {
     final result = recognizer.getResult(stream);
     print(prettyPrintJson(result.toJson()));
 
-    // Create TranscriptionResult
-    final transcriptionResult = TranscriptionResult.fromJson(result.toJson());
-
     // Clean up stream after use
     stream.free();
 
-    return transcriptionResult;
+    return result.text;
   }
 
   @override
