@@ -4,7 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
-enum DictationStatus { idle, recording, error }
+// First, update the enum
+enum DictationStatus {
+  idle,
+  recording,
+  finishing,
+  error,
+}
 
 class DictationState {
   final DictationStatus status;
@@ -40,13 +46,8 @@ class DictationNotifier extends StateNotifier<DictationState> {
   final Ref ref;
   final OfflineModel model;
   final int sampleRate;
-  late final NGramTranscriptionCombiner _transcriptionCombiner =
-      NGramTranscriptionCombiner(
-          config: NGramTranscriptionConfig(
-              ngramSize: 3,
-              similarityThreshold: 0.85,
-              debug: true // Set to true to see matching details
-              ));
+  late final TranscriptionCombiner _transcriptionCombiner =
+      TranscriptionCombiner(config: TranscriptionConfig());
 
   late final RollingCache _audioCache;
   Timer? _stopTimer;
@@ -131,28 +132,53 @@ class DictationNotifier extends StateNotifier<DictationState> {
     }
   }
 
+// Then, the updated stopDictation method
   Future<void> stopDictation() async {
     if (state.status != DictationStatus.recording) return;
 
     try {
+      // Cancel timers first
       _stopTimer?.cancel();
       _stopTimer = null;
       _chunkTimer?.cancel();
       _chunkTimer = null;
 
-      // Process any remaining audio
-      if (_audioCache.isNotEmpty) {
-        _processChunk();
-      }
-
-      // Stop recorder
-      final recorder = ref.read(recorderProvider.notifier);
+      // Stop the recorder before processing final audio
+      final recorder = ref.read(mockRecorderProvider.notifier);
       await recorder.stopStreaming();
       await recorder.stopRecorder();
 
+      // Process any remaining audio before clearing
+      if (_audioCache.isNotEmpty) {
+        print('Processing final audio chunk...');
+        final finalAudioData = _audioCache.getData();
+        final finalTranscription =
+            model.processAudio(finalAudioData, sampleRate);
+
+        // Combine with existing transcript
+        final finalText = _transcriptionCombiner.combineTranscripts(
+          state.fullTranscript,
+          finalTranscription,
+        );
+
+        print('Final chunk transcription: $finalTranscription');
+        print('Final complete transcript: $finalText');
+
+        state = state.copyWith(
+          status: DictationStatus.finishing,
+          currentChunkText: finalTranscription,
+          fullTranscript: finalText,
+        );
+      }
+
+      // Clear cache after processing
       _audioCache.clear();
 
-      state = state.copyWith(status: DictationStatus.idle);
+      // Update final state
+      state = state.copyWith(
+        status: DictationStatus.idle,
+        currentChunkText: '', // Clear current chunk text
+      );
     } catch (e) {
       print('Error stopping dictation: $e');
       state = state.copyWith(

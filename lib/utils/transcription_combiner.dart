@@ -1,12 +1,12 @@
 import 'dart:math';
 
-class NGramTranscriptionConfig {
+class TranscriptionConfig {
   final int ngramSize;
   final double similarityThreshold;
   final int minOverlapWords;
   final bool debug;
 
-  const NGramTranscriptionConfig({
+  const TranscriptionConfig({
     this.ngramSize = 3,
     this.similarityThreshold = 0.85,
     this.minOverlapWords = 3,
@@ -14,12 +14,12 @@ class NGramTranscriptionConfig {
   });
 }
 
-class NGramTranscriptionCombiner {
-  final NGramTranscriptionConfig config;
+class TranscriptionCombiner {
+  final TranscriptionConfig config;
   String _previousText = '';
 
-  NGramTranscriptionCombiner({NGramTranscriptionConfig? config})
-      : config = config ?? const NGramTranscriptionConfig();
+  TranscriptionCombiner({TranscriptionConfig? config})
+      : config = config ?? const TranscriptionConfig();
 
   String combineTranscripts(String existing, String newText) {
     if (newText.isEmpty || newText == _previousText) {

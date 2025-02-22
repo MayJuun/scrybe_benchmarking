@@ -10,13 +10,8 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   final Ref ref;
   final OfflineModel model;
   final int sampleRate;
-  late final NGramTranscriptionCombiner _transcriptionCombiner =
-      NGramTranscriptionCombiner(
-          config: NGramTranscriptionConfig(
-              ngramSize: 3,
-              similarityThreshold: 0.85,
-              debug: true // Set to true to see matching details
-              ));
+  late final TranscriptionCombiner _transcriptionCombiner =
+      TranscriptionCombiner(config: TranscriptionConfig());
 
   late final RollingCache _audioCache;
   Timer? _stopTimer;
