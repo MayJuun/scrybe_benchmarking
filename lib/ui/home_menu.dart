@@ -53,16 +53,13 @@ class HomeMenuScreen extends ConsumerWidget {
               ElevatedButton(
                 onPressed: () async {
                   // Load test files first if needed
-                  // await dictationBenchNotifier.loadTestFiles();
                   if (context.mounted) {
-                    // Navigator.of(context).push(
-                    //   MaterialPageRoute(
-                    //     builder: (_) => DictationBenchmarkScreen(
-                    //       onlineConfigs: [],
-                    //       offlineConfigs: [],
-                    //     ),
-                    //   ),
-                    // );
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            DictationBenchmarkScreen(models: modelState.models),
+                      ),
+                    );
                   }
                 },
                 child: const Text('Dictation Benchmarks'),

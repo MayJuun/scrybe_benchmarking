@@ -114,8 +114,6 @@ class RecorderNotifier extends StateNotifier<RecorderState> {
     try {
       _recorder.startStreamingData();
       _subscription = _recorder.uint8ListStream.listen((audioData) {
-        print('made it here');
-        print(audioData.length);
         onAudioData(audioData.rawData);
       });
       

@@ -6,18 +6,12 @@ import 'package:sherpa_onnx/sherpa_onnx.dart';
 
 class OfflineModel extends ModelBase {
   final OfflineRecognizer recognizer;
-  OfflineStream? stream;
 
   OfflineModel({required OfflineRecognizerConfig config})
       : recognizer = OfflineRecognizer(config),
         super(
             modelName:
                 (config.model.tokens.split('/')..removeLast()).removeLast());
-
-  @override
-  void doCreateStream() {
-    stream = recognizer.createStream();
-  }
 
   /// Returns a pretty printed JSON string.
   final JsonEncoder jsonEncoder = JsonEncoder.withIndent('    ');
@@ -26,26 +20,32 @@ class OfflineModel extends ModelBase {
   String prettyPrintJson(Map<String, dynamic> map) => jsonEncoder.convert(map);
 
   @override
-  String processAudio(Uint8List audioData, int sampleRate) {
+  TranscriptionResult processAudio(Uint8List audioData, int sampleRate) {
     print('Processing audio data ${audioData.length} bytes');
-    if (stream == null) return '';
+    final stream = recognizer.createStream();
 
+    // Convert audio data to samples
     final samples = convertBytesToFloat32(audioData);
-    stream!.acceptWaveform(samples: samples, sampleRate: sampleRate);
-    recognizer.decode(stream!);
-    final result = recognizer.getResult(stream!);
-    print(prettyPrintJson(result.toJson()));
-    return result.text;
-  }
 
-  @override
-  void onRecordingStop() {
-    stream?.free();
+    // Process waveform with recognizer stream
+    stream.acceptWaveform(samples: samples, sampleRate: sampleRate);
+    recognizer.decode(stream);
+
+    // Get the result from the recognizer
+    final result = recognizer.getResult(stream);
+    print(prettyPrintJson(result.toJson()));
+
+    // Create TranscriptionResult
+    final transcriptionResult = TranscriptionResult.fromJson(result.toJson());
+
+    // Clean up stream after use
+    stream.free();
+
+    return transcriptionResult;
   }
 
   @override
   void dispose() {
-    stream?.free();
     recognizer.free();
   }
 }

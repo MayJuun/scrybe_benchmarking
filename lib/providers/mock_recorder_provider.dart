@@ -9,7 +9,11 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
   Uint8List? _audioData;
   Timer? _audioTimer;
   StreamController<Uint8List>? _audioController;
+
   final int chunkSize = 960; // 30ms of audio at 16kHz, 16-bit
+  final int bytesPerSample = 2; // 16-bit audio = 2 bytes per sample
+  final Duration frameInterval =
+      const Duration(milliseconds: 30); // Standard frame size
 
   MockRecorderNotifier() : super(const RecorderState());
 
@@ -18,7 +22,7 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
     await stopRecorder();
     _audioTimer?.cancel();
     await _audioController?.close();
-    
+
     // Reset state
     _audioFilePath = path;
     _audioData = null;
@@ -28,86 +32,93 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
   Future<void> initialize({int sampleRate = 16000}) async {
     if (_audioFilePath == null) {
       state = state.copyWith(
-        status: RecorderStatus.error,
-        errorMessage: 'Audio file not set'
-      );
+          status: RecorderStatus.error, errorMessage: 'Audio file not set');
       return;
     }
 
     try {
       // Load the audio data during initialization
       _audioData = await _readWavFile();
-      
+
       state = state.copyWith(
-        status: RecorderStatus.initialized,
-        isInitialized: true
-      );
+          status: RecorderStatus.initialized, isInitialized: true);
     } catch (e) {
       state = state.copyWith(
-        status: RecorderStatus.error,
-        errorMessage: 'Failed to initialize mock recorder: $e'
-      );
+          status: RecorderStatus.error,
+          errorMessage: 'Failed to initialize mock recorder: $e');
     }
   }
 
   Future<void> startRecorder() async {
     if (!state.isInitialized || _audioData == null) {
       state = state.copyWith(
-        status: RecorderStatus.error,
-        errorMessage: 'Mock recorder not initialized or no audio data'
-      );
+          status: RecorderStatus.error,
+          errorMessage: 'Mock recorder not initialized or no audio data');
       return;
     }
 
     try {
       _audioController = StreamController<Uint8List>.broadcast();
-      
-      state = state.copyWith(
-        status: RecorderStatus.ready,
-        isStarted: true
-      );
+
+      state = state.copyWith(status: RecorderStatus.ready, isStarted: true);
     } catch (e) {
       state = state.copyWith(
-        status: RecorderStatus.error,
-        errorMessage: 'Failed to start mock recorder: $e'
-      );
+          status: RecorderStatus.error,
+          errorMessage: 'Failed to start mock recorder: $e');
     }
   }
 
   Future<void> startStreaming(void Function(Uint8List) onAudioData) async {
     if (!state.isStarted || _audioData == null) {
       state = state.copyWith(
-        status: RecorderStatus.error,
-        errorMessage: 'Mock recorder not started or no audio data'
-      );
+          status: RecorderStatus.error,
+          errorMessage: 'Mock recorder not started or no audio data');
       return;
     }
 
     try {
       var position = 0;
+      var lastChunkTime = DateTime.now();
 
-      // Stream the audio data in chunks
-      _audioTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
+      void processChunk(Timer timer) {
         if (position >= _audioData!.length) {
           timer.cancel();
           return;
         }
 
+        // Calculate timing drift
+        final now = DateTime.now();
+        final actualInterval = now.difference(lastChunkTime);
+        final drift =
+            frameInterval.inMicroseconds - actualInterval.inMicroseconds;
+
+        // Adjust next chunk timing if needed
+        if (drift.abs() > 1000) {
+          // If drift is more than 1ms
+          timer.cancel();
+          _audioTimer = Timer.periodic(
+              frameInterval + Duration(microseconds: drift ~/ 2),
+              processChunk // Reuse the same callback
+              );
+        }
+
         final end = (position + chunkSize).clamp(0, _audioData!.length);
         final chunk = _audioData!.sublist(position, end);
         onAudioData(chunk);
-        position = end;
-      });
 
-      state = state.copyWith(
-        status: RecorderStatus.streaming,
-        isStreaming: true
-      );
+        position = end;
+        lastChunkTime = now;
+      }
+
+      // Start the initial timer
+      _audioTimer = Timer.periodic(frameInterval, processChunk);
+
+      state =
+          state.copyWith(status: RecorderStatus.streaming, isStreaming: true);
     } catch (e) {
       state = state.copyWith(
-        status: RecorderStatus.error,
-        errorMessage: 'Failed to start streaming: $e'
-      );
+          status: RecorderStatus.error,
+          errorMessage: 'Failed to start streaming: $e');
     }
   }
 
@@ -118,16 +129,12 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
       _audioTimer?.cancel();
       await _audioController?.close();
       _audioController = null;
-      
-      state = state.copyWith(
-        status: RecorderStatus.ready,
-        isStreaming: false
-      );
+
+      state = state.copyWith(status: RecorderStatus.ready, isStreaming: false);
     } catch (e) {
       state = state.copyWith(
-        status: RecorderStatus.error,
-        errorMessage: 'Failed to stop streaming: $e'
-      );
+          status: RecorderStatus.error,
+          errorMessage: 'Failed to stop streaming: $e');
     }
   }
 
@@ -138,21 +145,18 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
       if (state.isStreaming) {
         await stopStreaming();
       }
-      
-      state = state.copyWith(
-        status: RecorderStatus.initialized,
-        isStarted: false
-      );
+
+      state =
+          state.copyWith(status: RecorderStatus.initialized, isStarted: false);
     } catch (e) {
       state = state.copyWith(
-        status: RecorderStatus.error,
-        errorMessage: 'Failed to stop mock recorder: $e'
-      );
+          status: RecorderStatus.error,
+          errorMessage: 'Failed to stop mock recorder: $e');
     }
   }
 
-  Stream<Uint8List> get audioStream => 
-    _audioController?.stream ?? const Stream.empty();
+  Stream<Uint8List> get audioStream =>
+      _audioController?.stream ?? const Stream.empty();
 
   Future<Uint8List> _readWavFile() async {
     final file = File(_audioFilePath!);
@@ -171,6 +175,7 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
   }
 }
 
-final mockRecorderProvider = StateNotifierProvider<MockRecorderNotifier, RecorderState>((ref) {
+final mockRecorderProvider =
+    StateNotifierProvider<MockRecorderNotifier, RecorderState>((ref) {
   return MockRecorderNotifier();
 });

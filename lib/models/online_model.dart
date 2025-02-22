@@ -13,24 +13,32 @@ class OnlineModel extends ModelBase {
             modelName:
                 (config.model.tokens.split('/')..removeLast()).removeLast());
 
-  @override
-  void doCreateStream() {
-    stream = recognizer.createStream();
+  // Stream management
+  bool createStream() {
+    try {
+      stream = recognizer.createStream();
+      return true;
+    } catch (e) {
+      print('Failed to create stream for $modelName: $e');
+      return false;
+    }
   }
 
   @override
-  String processAudio(Uint8List audioData, int sampleRate) {
-    if (stream == null) return '';
+  TranscriptionResult processAudio(Uint8List audioData, int sampleRate) {
+    if (stream == null) return TranscriptionResult.empty();
 
     final samples = convertBytesToFloat32(audioData);
     stream!.acceptWaveform(samples: samples, sampleRate: sampleRate);
 
-    String result = '';
+    OnlineRecognizerResult? result;
     while (recognizer.isReady(stream!)) {
       recognizer.decode(stream!);
-      result = recognizer.getResult(stream!).text;
+      result = recognizer.getResult(stream!);
     }
-    return result;
+    return result == null
+        ? TranscriptionResult.empty()
+        : TranscriptionResult.fromJson(result.toJson());
   }
 
   String finalizeAndGetResult() {
@@ -43,7 +51,6 @@ class OnlineModel extends ModelBase {
     return recognizer.getResult(stream!).text;
   }
 
-  @override
   void onRecordingStop() {
     stream?.inputFinished();
     final finalText = finalizeAndGetResult();
