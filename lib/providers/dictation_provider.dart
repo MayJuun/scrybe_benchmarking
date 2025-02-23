@@ -14,28 +14,40 @@ enum DictationStatus {
 
 class DictationState {
   final DictationStatus status;
+  final String currentChunkText;
+  final String fullTranscript;
   final String? errorMessage;
-  final String currentChunkText; // Text from current processing
-  final String fullTranscript; // Accumulated transcript
+  final BenchmarkProgress? currentFileProgress;
+  final BenchmarkProgress? benchmarkProgress;
+  final bool benchmarkComplete;
 
   const DictationState({
     this.status = DictationStatus.idle,
-    this.errorMessage,
     this.currentChunkText = '',
     this.fullTranscript = '',
+    this.errorMessage,
+    this.currentFileProgress,
+    this.benchmarkProgress,
+    this.benchmarkComplete = false,
   });
 
   DictationState copyWith({
     DictationStatus? status,
-    String? errorMessage,
     String? currentChunkText,
     String? fullTranscript,
+    String? errorMessage,
+    BenchmarkProgress? currentFileProgress,
+    BenchmarkProgress? benchmarkProgress,
+    bool? benchmarkComplete,
   }) {
     return DictationState(
       status: status ?? this.status,
-      errorMessage: errorMessage ?? this.errorMessage,
       currentChunkText: currentChunkText ?? this.currentChunkText,
       fullTranscript: fullTranscript ?? this.fullTranscript,
+      errorMessage: errorMessage ?? this.errorMessage,
+      currentFileProgress: currentFileProgress ?? this.currentFileProgress,
+      benchmarkProgress: benchmarkProgress ?? this.benchmarkProgress,
+      benchmarkComplete: benchmarkComplete ?? this.benchmarkComplete,
     );
   }
 }
@@ -197,7 +209,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
   }
 }
 
-final dictationProvider = StateNotifierProvider.family<DictationNotifier,
-    DictationState, ModelBase>(
+final dictationProvider =
+    StateNotifierProvider.family<DictationNotifier, DictationState, ModelBase>(
   (ref, model) => DictationNotifier(ref: ref, model: model),
 );

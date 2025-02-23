@@ -52,6 +52,7 @@ class OnlineModel extends ModelBase {
   void onRecordingStop() {
     stream?.inputFinished();
     final finalText = finalizeAndGetResult();
+    print('finalText: $finalText');
     stream?.free();
   }
 
