@@ -162,6 +162,7 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
       _audioController?.stream ?? const Stream.empty();
 
   Future<Uint8List> _readWavFile() async {
+    print('Reading WAV file: $_audioFilePath');
     final file = File(_audioFilePath!);
     final allBytes = await file.readAsBytes();
     if (allBytes.length < 44) {

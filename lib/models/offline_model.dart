@@ -33,7 +33,7 @@ class OfflineModel extends ModelBase {
 
     // Get the result from the recognizer
     final result = recognizer.getResult(stream);
-    print(prettyPrintJson(result.toJson()));
+    // print(prettyPrintJson(result.toJson()));
 
     // Clean up stream after use
     stream.free();
