@@ -28,6 +28,8 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   Stopwatch? processingStopwatch;
   Duration _accumulatedProcessingTime = Duration.zero;
 
+  final List<BenchmarkMetrics> _allMetrics = [];
+
   DictationBenchmarkNotifier({
     required this.ref,
     required this.model,
@@ -209,21 +211,21 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     }
   }
 
+// In DictationBenchmarkNotifier
   Future<void> _onFileComplete() async {
     final currentFile = _testFiles[_currentFileIndex];
-    
+
     final metrics = BenchmarkMetrics.create(
       modelName: model.modelName,
       modelType: model is OnlineModel ? 'online' : 'offline',
       wavFile: currentFile,
       transcription: state.fullTranscript,
-      reference:
-          _referenceTranscripts[currentFile] ?? '', // Use stored reference
+      reference: _referenceTranscripts[currentFile] ?? '',
       processingDuration: _accumulatedProcessingTime,
-      audioLengthMs: _fileDurations[currentFile] ?? 0, // Use stored duration
+      audioLengthMs: _fileDurations[currentFile] ?? 0,
     );
 
-    print('File complete metrics:\n$metrics');
+    _allMetrics.add(metrics);
 
     // Stop the current dictation session
     await stopDictation();
@@ -237,13 +239,15 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
       _currentFileIndex++;
       await startDictation();
     } else {
-      print('All test files processed.');
+      print('All test files processed for ${model.modelName}');
       state = state.copyWith(status: DictationStatus.idle);
       _processingCompleter?.complete();
       _processingCompleter = null;
     }
   }
 
+// Add a getter to access metrics
+  List<BenchmarkMetrics> get metrics => List.unmodifiable(_allMetrics);
   Future<void> stopDictation() async {
     if (state.status != DictationStatus.recording) return;
     try {

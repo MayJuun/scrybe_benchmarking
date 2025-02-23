@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
@@ -83,6 +85,8 @@ class _DictationBenchmarkScreenState
                   notifier.stopDictation();
                 } else {
                   print('number of models: ${widget.models.length}');
+                  final allMetrics = <BenchmarkMetrics>[];
+
                   for (final model in widget.models) {
                     print('model: ${model.modelName}');
                     // Set the current model
@@ -92,13 +96,24 @@ class _DictationBenchmarkScreenState
                     final notifier =
                         ref.read(dictationBenchmarkProvider(model).notifier);
 
-                    // Optionally, if startDictation() returns a Future, await its completion
+                    // Run the model and collect its metrics
                     await notifier.startDictation();
+                    allMetrics.addAll(notifier.metrics);
                   }
+
+                  final outputDir = Directory(
+                      '${Directory.current.path}/assets/dictation_test');
+
+                  // Generate consolidated report after all models finish
+                  final reportGenerator = BenchmarkReportGenerator(
+                    metricsList: allMetrics,
+                    outputDir: outputDir.path,
+                  );
+                  await reportGenerator.generateReports();
+                  print('Generated benchmark reports in benchmark_results/');
                 }
               },
             ),
-
             // Error message if any
             if (selectedModel != null)
               Padding(
