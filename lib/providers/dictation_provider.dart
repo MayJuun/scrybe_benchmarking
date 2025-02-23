@@ -40,11 +40,11 @@ class DictationState {
   }
 }
 
-/// Uses an [OfflineModel], which presumably has an [OfflineRecognizer]
+/// Uses an [ModelBase], which presumably has an [OfflineRecognizer]
 /// you can retrieve via [model.recognizer].
 class DictationNotifier extends StateNotifier<DictationState> {
   final Ref ref;
-  final OfflineModel model;
+  final ModelBase model;
   final int sampleRate;
   late final TranscriptionCombiner _transcriptionCombiner =
       TranscriptionCombiner(config: TranscriptionConfig());
@@ -198,6 +198,6 @@ class DictationNotifier extends StateNotifier<DictationState> {
 }
 
 final dictationProvider = StateNotifierProvider.family<DictationNotifier,
-    DictationState, OfflineModel>(
+    DictationState, ModelBase>(
   (ref, model) => DictationNotifier(ref: ref, model: model),
 );

@@ -79,10 +79,10 @@ flutter:
     # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile.int8/tokens.txt
 
     # sherpa-onnx-streaming-zipformer-en-2023-06-26.int8 (online)
-    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26.int8/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
-    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26.int8/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
-    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26.int8/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx
-    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26.int8/tokens.txt
+    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26.int8/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
+    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26.int8/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
+    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26.int8/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx
+    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26.int8/tokens.txt
 
     # sherpa-onnx-whisper-medium.en.int8 (offline)
     # - assets/models/sherpa-onnx-whisper-medium.en.int8/medium.en-decoder.int8.onnx

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
-/// Uses an [OfflineModel], which presumably has an [OfflineRecognizer]
+/// Uses an [ModelBase], which presumably has an [OfflineRecognizer]
 /// you can retrieve via [model.recognizer].
 class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   final Ref ref;
@@ -17,7 +17,7 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   late final RollingCache _audioCache;
   Timer? _chunkTimer;
 
-  // Add these for managing test files
+  // Manage test files
   final List<String> _testFiles = [];
   int _currentFileIndex = -1;
   Completer<void>? _processingCompleter;
@@ -29,24 +29,20 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   }) : super(const DictationState()) {
     _audioCache = RollingCache(
       sampleRate: sampleRate,
-      bitDepth: 2, // 16-bit audio = 2 bytes
+      bitDepth: 2,
       durationSeconds: 10,
     );
   }
 
   Future<void> loadTestFiles() async {
     try {
-      // This will get the manifest which includes all assets
       final manifest = await rootBundle.loadString('AssetManifest.json');
       final Map<String, dynamic> manifestMap = json.decode(manifest);
-
-      // Filter for WAV files in your test directory
       _testFiles.addAll(manifestMap.keys
           .where((String key) =>
               key.startsWith('assets/dictation_test/test_files/') &&
               key.endsWith('.wav'))
           .toList());
-
       _currentFileIndex = 0;
       print('Loaded ${_testFiles.length} test files');
     } catch (e) {
@@ -58,15 +54,11 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
 
   Future<void> startDictation() async {
     if (state.status == DictationStatus.recording) return;
-
-    // Initialize the completer if this is the first file for the current model
     _processingCompleter ??= Completer<void>();
 
-    // Load files if not already loaded
     if (_testFiles.isEmpty) {
       await loadTestFiles();
     }
-
     if (_testFiles.isEmpty || _currentFileIndex >= _testFiles.length) {
       state = state.copyWith(
         status: DictationStatus.error,
@@ -85,16 +77,30 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
       await recorder.initialize(sampleRate: sampleRate);
       await recorder.startRecorder();
 
-      // Start streaming and provide the onComplete callback
+      // For online models, initialize their stream immediately.
+      if (model is OnlineModel) {
+        if (!(model as OnlineModel).createStream()) {
+          state = state.copyWith(
+            status: DictationStatus.error,
+            errorMessage: 'Failed to create online stream',
+          );
+          return;
+        }
+      }
+
+      // Start streaming and pass the onComplete callback.
       await recorder.startStreaming(
         _onAudioData,
         onComplete: _onFileComplete,
       );
 
-      _chunkTimer?.cancel();
-      _chunkTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        _processChunk();
-      });
+      // For offline models, set up a periodic timer to process accumulated audio.
+      if (model is OfflineModel) {
+        _chunkTimer?.cancel();
+        _chunkTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+          _processChunk();
+        });
+      }
 
       print(
           'Processing file ${_currentFileIndex + 1}/${_testFiles.length}: ${_testFiles[_currentFileIndex]}');
@@ -108,34 +114,32 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     return _processingCompleter!.future;
   }
 
-  Future<void> _onFileComplete() async {
-    // Stop the current dictation process
-    await stopDictation();
-
-    // Move to the next file if available
-    if (_currentFileIndex < _testFiles.length - 1) {
-      _currentFileIndex++;
-      await startDictation();
-    } else {
-      print('All test files processed.');
-      state = state.copyWith(status: DictationStatus.idle);
-      // Complete the completer so that the Future returned by startDictation resolves
-      _processingCompleter?.complete();
-      _processingCompleter = null;
-    }
-  }
-
+  // For each incoming chunk, process it immediately if online,
+  // otherwise accumulate it.
   void _onAudioData(Uint8List audioData) {
     if (state.status != DictationStatus.recording) return;
-
     try {
-      _audioCache.addChunk(audioData);
+      if (model is OnlineModel) {
+        // Process the chunk right away.
+        final transcriptionResult = model.processAudio(audioData, sampleRate);
+        if (transcriptionResult.isNotEmpty) {
+          state = state.copyWith(
+            currentChunkText: transcriptionResult,
+            fullTranscript: transcriptionResult,
+          );
+        }
+      } else {
+        // Offline: accumulate in the rolling cache.
+        _audioCache.addChunk(audioData);
+      }
     } catch (e) {
       print('Error processing audio data chunk: $e');
     }
   }
 
+  // Only used for offline models.
   void _processChunk() {
+    if (model is! OfflineModel) return;
     if (_audioCache.isEmpty) return;
 
     try {
@@ -145,7 +149,6 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
           state.fullTranscript, transcriptionResult);
 
       state = state.copyWith(
-        status: DictationStatus.recording,
         currentChunkText: transcriptionResult,
         fullTranscript: combinedText,
       );
@@ -158,19 +161,37 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     }
   }
 
+  Future<void> _onFileComplete() async {
+    // Stop the current dictation session.
+    await stopDictation();
+
+    // Move to the next file if available.
+    if (_currentFileIndex < _testFiles.length - 1) {
+      _currentFileIndex++;
+      await startDictation();
+    } else {
+      print('All test files processed.');
+      state = state.copyWith(status: DictationStatus.idle);
+      _processingCompleter?.complete();
+      _processingCompleter = null;
+    }
+  }
+
   Future<void> stopDictation() async {
     if (state.status != DictationStatus.recording) return;
-
     try {
       _chunkTimer?.cancel();
       _chunkTimer = null;
 
-      // Process any remaining audio
-      if (_audioCache.isNotEmpty) {
+      // For offline models, process any remaining audio.
+      if (model is OfflineModel && _audioCache.isNotEmpty) {
         _processChunk();
       }
+      // For online models, finalize the stream.
+      if (model is OnlineModel) {
+        (model as OnlineModel).onRecordingStop();
+      }
 
-      // Stop recorder
       final recorder = ref.read(mockRecorderProvider.notifier);
       await recorder.stopStreaming();
       await recorder.stopRecorder();

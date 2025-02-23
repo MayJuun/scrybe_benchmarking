@@ -31,10 +31,9 @@ class _DictationBenchmarkScreenState
   @override
   Widget build(BuildContext context) {
     final selectedModel = ref.watch(selectedModelProvider);
-    final dictationState =
-        selectedModel != null && selectedModel is OfflineModel
-            ? ref.watch(dictationBenchmarkProvider(selectedModel))
-            : null;
+    final dictationState = selectedModel != null
+        ? ref.watch(dictationBenchmarkProvider(selectedModel))
+        : null;
 
     return Scaffold(
       appBar: AppBar(

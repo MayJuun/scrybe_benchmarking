@@ -190,19 +190,19 @@ Future<List<OnlineModel>> loadOnlineConfigs() async {
   //   print('Failed to load Mobile Zipformer model: $e');
   // }
 
-  // // Zipformer2 Streaming (sherpa-onnx-streaming-zipformer-en-2023-06-26.int8)
-  // try {
-  //   configs.add(await createOnlineTransducerConfig(
-  //     modelName: 'sherpa-onnx-streaming-zipformer-en-2023-06-26.int8',
-  //     encoder: 'encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
-  //     decoder: 'decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
-  //     joiner: 'joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
-  //     tokens: 'tokens.txt',
-  //     modelType: 'zipformer2',
-  //   ));
-  // } catch (e) {
-  //   print('Failed to load Zipformer2 streaming model: $e');
-  // }
+  // Zipformer2 Streaming (sherpa-onnx-streaming-zipformer-en-2023-06-26.int8)
+  try {
+    configs.add(await createOnlineTransducerConfig(
+      modelName: 'sherpa-onnx-streaming-zipformer-en-2023-06-26.int8',
+      encoder: 'encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+      decoder: 'decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+      joiner: 'joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+      tokens: 'tokens.txt',
+      modelType: 'zipformer2',
+    ));
+  } catch (e) {
+    print('Failed to load Zipformer2 streaming model: $e');
+  }
 
   return configs.map((e) => OnlineModel(config: e)).toList();
 }
