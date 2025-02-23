@@ -17,10 +17,16 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   late final RollingCache _audioCache;
   Timer? _chunkTimer;
 
-  // Manage test files
+  // File management
   final List<String> _testFiles = [];
+  final Map<String, String> _referenceTranscripts = {}; // Add this
+  final Map<String, int> _fileDurations = {}; // Add this
   int _currentFileIndex = -1;
   Completer<void>? _processingCompleter;
+
+  // Benchmark tracking
+  Stopwatch? processingStopwatch;
+  Duration _accumulatedProcessingTime = Duration.zero;
 
   DictationBenchmarkNotifier({
     required this.ref,
@@ -43,13 +49,44 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
               key.startsWith('assets/dictation_test/test_files/') &&
               key.endsWith('.wav'))
           .toList());
+
+      for (final wavFile in _testFiles) {
+        final srtFile = wavFile.replaceAll('.wav', '.srt');
+        try {
+          final srtContent = await rootBundle.loadString(srtFile);
+          _referenceTranscripts[wavFile] = _stripSrt(srtContent);
+        } catch (e) {
+          print('Warning: No reference transcript found for $wavFile');
+          _referenceTranscripts[wavFile] = '';
+        }
+
+        final recorder = ref.read(mockRecorderProvider.notifier);
+        await recorder.setAudioFile(wavFile);
+        await recorder.initialize(sampleRate: sampleRate);
+        _fileDurations[wavFile] = recorder.getAudioDuration();
+      }
+
       _currentFileIndex = 0;
-      print('Loaded ${_testFiles.length} test files');
+      print(
+          'Loaded ${_testFiles.length} test files with ${_referenceTranscripts.length} transcripts');
     } catch (e) {
       print('Error loading test files: $e');
       _testFiles.clear();
       _currentFileIndex = -1;
     }
+  }
+
+  String _stripSrt(String text) {
+    final lines = text.split('\n');
+    final sb = StringBuffer();
+    for (final l in lines) {
+      final trimmed = l.trim();
+      if (trimmed.isEmpty) continue;
+      if (RegExp(r'^\d+$').hasMatch(trimmed)) continue;
+      if (trimmed.contains('-->')) continue;
+      sb.write('$trimmed ');
+    }
+    return sb.toString().trim();
   }
 
   Future<void> startDictation() async {
@@ -121,7 +158,12 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     try {
       if (model is OnlineModel) {
         // Process the chunk right away.
+        processingStopwatch = Stopwatch()..start();
         final transcriptionResult = model.processAudio(audioData, sampleRate);
+        processingStopwatch?.stop();
+        _accumulatedProcessingTime +=
+            processingStopwatch?.elapsed ?? Duration.zero;
+
         if (transcriptionResult.isNotEmpty) {
           state = state.copyWith(
             currentChunkText: transcriptionResult,
@@ -144,7 +186,13 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
 
     try {
       final audioData = _audioCache.getData();
+
+      processingStopwatch = Stopwatch()..start();
       final transcriptionResult = model.processAudio(audioData, sampleRate);
+      processingStopwatch?.stop();
+      _accumulatedProcessingTime +=
+          processingStopwatch?.elapsed ?? Duration.zero;
+
       final combinedText = _transcriptionCombiner.combineTranscripts(
           state.fullTranscript, transcriptionResult);
 
@@ -162,10 +210,29 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   }
 
   Future<void> _onFileComplete() async {
-    // Stop the current dictation session.
+    final currentFile = _testFiles[_currentFileIndex];
+    
+    final metrics = BenchmarkMetrics.create(
+      modelName: model.modelName,
+      modelType: model is OnlineModel ? 'online' : 'offline',
+      wavFile: currentFile,
+      transcription: state.fullTranscript,
+      reference:
+          _referenceTranscripts[currentFile] ?? '', // Use stored reference
+      processingDuration: _accumulatedProcessingTime,
+      audioLengthMs: _fileDurations[currentFile] ?? 0, // Use stored duration
+    );
+
+    print('File complete metrics:\n$metrics');
+
+    // Stop the current dictation session
     await stopDictation();
 
-    // Move to the next file if available.
+    // Reset timing for next file
+    _accumulatedProcessingTime = Duration.zero;
+    processingStopwatch = null;
+
+    // Move to next file if available
     if (_currentFileIndex < _testFiles.length - 1) {
       _currentFileIndex++;
       await startDictation();

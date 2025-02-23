@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/services.dart';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
@@ -14,6 +14,7 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
   final int bytesPerSample = 2; // 16-bit audio = 2 bytes per sample
   final Duration frameInterval =
       const Duration(milliseconds: 30); // Standard frame size
+  int? _durationMs;
 
   MockRecorderNotifier() : super(const RecorderState());
 
@@ -166,8 +167,20 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
     if (allBytes.length < 44) {
       throw Exception('WAV file too small or invalid header: $_audioFilePath');
     }
-    return allBytes.sublist(44); // naive skip
+
+    final pcmBytes = allBytes.sublist(44); // Skip WAV header
+    _durationMs = _estimateAudioMs(pcmBytes.length);
+    return pcmBytes;
   }
+
+  int _estimateAudioMs(int numBytes) {
+    // 16-bit => 2 bytes per sample, 16 kHz => 16000 samples/sec
+    final sampleCount = numBytes ~/ 2;
+    return (sampleCount * 1000) ~/ 16000;
+  }
+
+  // Simple getter for the duration
+  int getAudioDuration() => _durationMs ?? 0;
 
   @override
   void dispose() async {
