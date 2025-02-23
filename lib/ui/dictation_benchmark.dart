@@ -65,62 +65,50 @@ class _DictationBenchmarkScreenState
             ),
             const SizedBox(height: 16),
 
-            // Model dropdown
-            DropdownButtonFormField<String>(
-              value: selectedModel?.modelName,
-              decoration: const InputDecoration(
-                labelText: 'Select Model',
-                border: OutlineInputBorder(),
+            ElevatedButton.icon(
+              icon: Icon(
+                dictationState?.status == DictationStatus.recording
+                    ? Icons.stop
+                    : Icons.mic,
               ),
-              items: widget.models
-                  .map((e) => e.modelName)
-                  .map((name) => DropdownMenuItem(
-                        value: name,
-                        child: Text(name),
-                      ))
-                  .toList(),
-              onChanged: (selected) {
-                if (selected != null) {
-                  // Stop current dictation if any
-                  if (selectedModel != null && selectedModel is OfflineModel) {
-                    ref
-                        .read(dictationBenchmarkProvider(selectedModel).notifier)
-                        .stopDictation();
+              label: Text(
+                dictationState?.status == DictationStatus.recording
+                    ? 'Stop Test'
+                    : 'Start Test',
+              ),
+              onPressed: () async {
+                if (dictationState?.status == DictationStatus.recording) {
+                  // Stop the current dictation for the selected model
+                  final notifier = ref.read(
+                      dictationBenchmarkProvider(selectedModel!).notifier);
+                  notifier.stopDictation();
+                } else {
+                  print('number of models: ${widget.models.length}');
+                  for (final model in widget.models) {
+                    print('model: ${model.modelName}');
+                    // Set the current model
+                    ref.read(selectedModelProvider.notifier).state = model;
+
+                    // Use the model directly when fetching the notifier
+                    final notifier =
+                        ref.read(dictationBenchmarkProvider(model).notifier);
+
+                    // Optionally, if startDictation() returns a Future, await its completion
+                    await notifier.startDictation();
                   }
-                  // Select new model
-                  ref.read(selectedModelProvider.notifier).state =
-                      widget.models.where((e) => e.modelName == selected).first;
                 }
               },
             ),
-            const SizedBox(height: 16),
 
-            // Start/Stop button
-            if (selectedModel != null) ...[
-              ElevatedButton.icon(
-                icon: Icon(
-                  dictationState?.status == DictationStatus.recording
-                      ? Icons.stop
-                      : Icons.mic,
+            // Error message if any
+            if (selectedModel != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  selectedModel.modelName,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
-                label: Text(
-                  dictationState?.status == DictationStatus.recording
-                      ? 'Stop'
-                      : 'Start',
-                ),
-                onPressed: () {
-                  if (selectedModel is OfflineModel) {
-                    final notifier = ref.read(
-                        dictationBenchmarkProvider(selectedModel).notifier);
-                    if (dictationState?.status == DictationStatus.recording) {
-                      notifier.stopDictation();
-                    } else {
-                      notifier.startDictation();
-                    }
-                  }
-                },
               ),
-            ],
 
             // Error message if any
             if (dictationState?.errorMessage != null)

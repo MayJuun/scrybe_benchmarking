@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
@@ -8,14 +9,18 @@ import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 /// you can retrieve via [model.recognizer].
 class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   final Ref ref;
-  final OfflineModel model;
+  final ModelBase model;
   final int sampleRate;
   late final TranscriptionCombiner _transcriptionCombiner =
       TranscriptionCombiner(config: TranscriptionConfig());
 
   late final RollingCache _audioCache;
-  Timer? _stopTimer;
   Timer? _chunkTimer;
+
+  // Add these for managing test files
+  final List<String> _testFiles = [];
+  int _currentFileIndex = -1;
+  Completer<void>? _processingCompleter;
 
   DictationBenchmarkNotifier({
     required this.ref,
@@ -29,39 +34,94 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     );
   }
 
+  Future<void> loadTestFiles() async {
+    try {
+      // This will get the manifest which includes all assets
+      final manifest = await rootBundle.loadString('AssetManifest.json');
+      final Map<String, dynamic> manifestMap = json.decode(manifest);
+
+      // Filter for WAV files in your test directory
+      _testFiles.addAll(manifestMap.keys
+          .where((String key) =>
+              key.startsWith('assets/dictation_test/test_files/') &&
+              key.endsWith('.wav'))
+          .toList());
+
+      _currentFileIndex = 0;
+      print('Loaded ${_testFiles.length} test files');
+    } catch (e) {
+      print('Error loading test files: $e');
+      _testFiles.clear();
+      _currentFileIndex = -1;
+    }
+  }
+
   Future<void> startDictation() async {
     if (state.status == DictationStatus.recording) return;
+
+    // Initialize the completer if this is the first file for the current model
+    _processingCompleter ??= Completer<void>();
+
+    // Load files if not already loaded
+    if (_testFiles.isEmpty) {
+      await loadTestFiles();
+    }
+
+    if (_testFiles.isEmpty || _currentFileIndex >= _testFiles.length) {
+      state = state.copyWith(
+        status: DictationStatus.error,
+        errorMessage: 'No test files available',
+      );
+      return;
+    }
 
     try {
       state =
           state.copyWith(status: DictationStatus.recording, fullTranscript: '');
       _audioCache.clear();
 
-      // Start recorder
       final recorder = ref.read(mockRecorderProvider.notifier);
-      await recorder.setAudioFile(
-          '/home/grey/dev/scrybe_benchmarking/assets/dictation_test/test_files/002.wav');
+      await recorder.setAudioFile(_testFiles[_currentFileIndex]);
       await recorder.initialize(sampleRate: sampleRate);
       await recorder.startRecorder();
-      await recorder.startStreaming(_onAudioData);
 
-      // Set a timer to process small chunks
+      // Start streaming and provide the onComplete callback
+      await recorder.startStreaming(
+        _onAudioData,
+        onComplete: _onFileComplete,
+      );
+
       _chunkTimer?.cancel();
       _chunkTimer = Timer.periodic(const Duration(seconds: 1), (_) {
         _processChunk();
       });
 
-      // Auto-stop after 10s
-      _stopTimer?.cancel();
-      _stopTimer = Timer(const Duration(seconds: 80), stopDictation);
-
-      print('Dictation started successfully');
+      print(
+          'Processing file ${_currentFileIndex + 1}/${_testFiles.length}: ${_testFiles[_currentFileIndex]}');
     } catch (e) {
       state = state.copyWith(
         status: DictationStatus.error,
         errorMessage: 'Failed to start: $e',
       );
       print('Error during dictation start: $e');
+    }
+    return _processingCompleter!.future;
+  }
+
+  Future<void> _onFileComplete() async {
+    // Stop the current dictation process
+    await stopDictation();
+
+    // Move to the next file if available
+    if (_currentFileIndex < _testFiles.length - 1) {
+      _currentFileIndex++;
+      await startDictation();
+    } else {
+      print('All test files processed.');
+      state = state.copyWith(status: DictationStatus.idle);
+      // Complete the completer so that the Future returned by startDictation resolves
+      _processingCompleter?.complete();
+      _processingCompleter = null;
     }
   }
 
@@ -102,8 +162,6 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     if (state.status != DictationStatus.recording) return;
 
     try {
-      _stopTimer?.cancel();
-      _stopTimer = null;
       _chunkTimer?.cancel();
       _chunkTimer = null;
 
@@ -131,7 +189,6 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
 
   @override
   void dispose() {
-    _stopTimer?.cancel();
     _chunkTimer?.cancel();
     _audioCache.clear();
     super.dispose();
@@ -139,6 +196,6 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
 }
 
 final dictationBenchmarkProvider = StateNotifierProvider.family<
-    DictationBenchmarkNotifier, DictationState, OfflineModel>(
+    DictationBenchmarkNotifier, DictationState, ModelBase>(
   (ref, model) => DictationBenchmarkNotifier(ref: ref, model: model),
 );

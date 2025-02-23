@@ -68,7 +68,10 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
     }
   }
 
-  Future<void> startStreaming(void Function(Uint8List) onAudioData) async {
+  Future<void> startStreaming(
+    void Function(Uint8List) onAudioData, {
+    void Function()? onComplete,
+  }) async {
     if (!state.isStarted || _audioData == null) {
       state = state.copyWith(
           status: RecorderStatus.error,
@@ -77,12 +80,14 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
     }
 
     try {
-      var position = 0;
-      var lastChunkTime = DateTime.now();
+      int position = 0;
+      DateTime lastChunkTime = DateTime.now();
 
       void processChunk(Timer timer) {
         if (position >= _audioData!.length) {
           timer.cancel();
+          // Notify that the file is complete.
+          if (onComplete != null) onComplete();
           return;
         }
 
@@ -92,14 +97,12 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
         final drift =
             frameInterval.inMicroseconds - actualInterval.inMicroseconds;
 
-        // Adjust next chunk timing if needed
         if (drift.abs() > 1000) {
-          // If drift is more than 1ms
           timer.cancel();
           _audioTimer = Timer.periodic(
-              frameInterval + Duration(microseconds: drift ~/ 2),
-              processChunk // Reuse the same callback
-              );
+            frameInterval + Duration(microseconds: drift ~/ 2),
+            processChunk,
+          );
         }
 
         final end = (position + chunkSize).clamp(0, _audioData!.length);
@@ -110,7 +113,6 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
         lastChunkTime = now;
       }
 
-      // Start the initial timer
       _audioTimer = Timer.periodic(frameInterval, processChunk);
 
       state =
