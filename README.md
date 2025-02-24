@@ -122,8 +122,7 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 | sherpa-onnx-zipformer-large-en-2023-06-26 | offline | 39.2424 | 0.206 | 4057 |
 | sherpa-onnx-zipformer-small-en-2023-06-26 | offline | 38.5455 | 0.109 | 2158 |
 
-## Run 4
-## Overall Results
+## Run 4 (live streaming)
 | Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
 |-------|------|----------|---------|------------------|
 | sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | online | 23.94 | 0.079 | 1515 |
@@ -132,3 +131,12 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 | sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile.int8 | online | 26.95 | 0.077 | 1489 |
 | sherpa-onnx-streaming-zipformer-en-2023-06-26.int8 | online | 26.80 | 0.086 | 1651 |
 
+## Run 5 (live streaming)
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-moonshine-base-en-int8 | offline | 17.95 | 0.201 | 4014 |
+| sherpa-onnx-nemo-ctc-en-conformer-large | offline | 25.28 | 0.231 | 4602 |
+| sherpa-onnx-nemo-ctc-en-conformer-small | offline | 27.43 | 0.048 | 942 |
+| sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | offline | 22.64 | 0.118 | 2344 |
+| sherpa-onnx-zipformer-large-en-2023-06-26 | offline | 30.28 | 0.079 | 1558 |
+| sherpa-onnx-zipformer-small-en-2023-06-26 | offline | 35.78 | 0.045 | 882 |
