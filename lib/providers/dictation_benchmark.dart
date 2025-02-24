@@ -25,6 +25,14 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   int _currentFileIndex = -1;
   Completer<void>? _processingCompleter;
 
+  // Add these properties to your class
+  final bool _isInSilence = false;
+  final int _silenceFrameCount = 0;
+  final int _silenceThreshold = 500; // Adjust based on your audio format
+  final Duration _maxWaitTime =
+      Duration(seconds: 3); // Maximum time before forced processing
+  DateTime? _lastProcessingTime;
+
   // Timing
   Stopwatch? processingStopwatch;
   Duration _accumulatedProcessingTime = Duration.zero;
@@ -40,7 +48,8 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     _audioCache = RollingCache(
       sampleRate: sampleRate,
       bitDepth: 2,
-      durationSeconds: 10,
+      durationSeconds:
+          model is OfflineModel ? (model as OfflineModel).cacheSize : 10,
     );
   }
 

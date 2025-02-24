@@ -171,3 +171,10 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 | sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | online | 23.94 | 0.193 | 3719 |
 | sherpa-onnx-streaming-zipformer-en-2023-06-26.int8 | online | 26.80 | 0.967 | 18602 |
 * There was an outlier where my phone froze that increased one test to an RTF of 66, so the average was 1.713 if the outlier is included
+
+## Run 7 (live streaming)
+
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) | Cache Duration(s) |
+|-------|------|----------|---------|------------------|----|
+| sherpa-onnx-moonshine-base-en-int8 | offline | 36.30 | 0.326 | 6608 | 15 |
+| sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | offline | 38.17 | 0.191 | 3874 | 20 |
