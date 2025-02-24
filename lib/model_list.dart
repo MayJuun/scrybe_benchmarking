@@ -22,20 +22,20 @@ Future<List<OfflineModel>> loadOfflineConfigs() async {
   }
 
   // Nemo Fast Conformer Transducer (sherpa-onnx-nemo-fast-conformer-transducer-en-24500)
-  // try {
-  //   configs.add(await createOfflineTransducerConfig(
-  //     modelName: 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500',
-  //     encoder: 'encoder.onnx',
-  //     decoder: 'decoder.onnx',
-  //     joiner: 'joiner.onnx',
-  //     tokens: 'tokens.txt',
-  //     numThreads: 1,
-  //     modelType: 'nemo_transducer',
-  //     debug: true,
-  //   ));
-  // } catch (e) {
-  //   print('Failed to load Nemo fast conformer transducer model: $e');
-  // }
+  try {
+    configs.add(await createOfflineTransducerConfig(
+      modelName: 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500',
+      encoder: 'encoder.onnx',
+      decoder: 'decoder.onnx',
+      joiner: 'joiner.onnx',
+      tokens: 'tokens.txt',
+      numThreads: 1,
+      modelType: 'nemo_transducer',
+      debug: true,
+    ));
+  } catch (e) {
+    print('Failed to load Nemo fast conformer transducer model: $e');
+  }
 
   // Nemo Conformer CTC Large (sherpa-onnx-nemo-ctc-en-conformer-large)
   // try {
@@ -119,20 +119,20 @@ Future<List<OnlineModel>> loadOnlineConfigs() async {
   final configs = <OnlineRecognizerConfig>[];
 
   // Nemo Streaming Fast Conformer Transducer (1040ms)
-  // try {
-  //   configs.add(await createOnlineTransducerConfig(
-  //     modelName:
-  //         'sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms',
-  //     encoder: 'encoder.onnx',
-  //     decoder: 'decoder.onnx',
-  //     joiner: 'joiner.onnx',
-  //     tokens: 'tokens.txt',
-  //     modelType: 'conformer',
-  //   ));
-  // } catch (e) {
-  //   print(
-  //       'Failed to load Nemo streaming fast conformer transducer (1040ms) model: $e');
-  // }
+  try {
+    configs.add(await createOnlineTransducerConfig(
+      modelName:
+          'sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms',
+      encoder: 'encoder.onnx',
+      decoder: 'decoder.onnx',
+      joiner: 'joiner.onnx',
+      tokens: 'tokens.txt',
+      modelType: 'conformer',
+    ));
+  } catch (e) {
+    print(
+        'Failed to load Nemo streaming fast conformer transducer (1040ms) model: $e');
+  }
   // Zipformer2 Streaming (sherpa-onnx-streaming-zipformer-en-2023-06-26.int8)
   // try {
   //   configs.add(await createOnlineTransducerConfig(

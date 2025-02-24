@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
 // This is just a simple UI that shows the recognized text and
@@ -88,8 +90,8 @@ class _DictationBenchmarkScreenState
               onPressed: () async {
                 // If we are currently recording for a model, we stop
                 if (dictationState?.status == DictationStatus.recording) {
-                  final notifier =
-                      ref.read(dictationBenchmarkProvider(selectedModel!).notifier);
+                  final notifier = ref.read(
+                      dictationBenchmarkProvider(selectedModel!).notifier);
                   notifier.stopDictation();
                   return;
                 }
@@ -103,7 +105,8 @@ class _DictationBenchmarkScreenState
                   // Mark this as the selected model
                   ref.read(selectedModelProvider.notifier).state = model;
 
-                  final notifier = ref.read(dictationBenchmarkProvider(model).notifier);
+                  final notifier =
+                      ref.read(dictationBenchmarkProvider(model).notifier);
 
                   // Start the dictation on the current model
                   await notifier.startDictation();
@@ -111,11 +114,14 @@ class _DictationBenchmarkScreenState
                   allMetrics.addAll(notifier.metrics);
                 }
 
+                final Directory directory =
+                    await getApplicationDocumentsDirectory();
                 // After all models are done, generate a consolidated report
-                final outputDir = Directory(
-                  '${Directory.current.path}/assets/dictation_test',
-                );
-
+                final outputDir =
+                    Directory(p.join(directory.path, 'dictation_test'));
+                if(!outputDir.existsSync()) {
+                  outputDir.createSync();
+                }
                 final reportGenerator = BenchmarkReportGenerator(
                   metricsList: allMetrics,
                   outputDir: outputDir.path,

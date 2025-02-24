@@ -4,6 +4,8 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 
 ## Setup
 
+### General
+
 - Ensure you have an ```assets/``` directory in the main project directory
 - inside ```assets/``` include ```curated/```, ```derived/```, ```models/```, and ```raw/```
 - in ```models/```, just put a directory for each model you want to test
@@ -31,7 +33,7 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 │   ├── Vent_v10.srt<br>
 │   ├── Vent_v10.wav<br>
 
-## Conversion
+### Conversion
 - You must have the folders setup as described above or else this won't work
 - When you click the ```Convert Raw Files``` button, it will go through each directory in ```raw/``` and create a mirror directory in ```curated/```
 - Currently only works on wav and srt files, but shouldn't be that hard to add mp3 support, and possible json basd on [this schema](misc/schema.json)
@@ -58,7 +60,26 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 │   │   ├── 002.srt<br>
 │   │   ├── 002.wav<br>
 
-## Benchmarking
+### Android
+
+- Specifically because I always forget these things
+- Add the following to AndroidManifest.xml
+```xml
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+``` 
+
+- In app/build.gradle I had to specifically set my ndk: ```ndkVersion = "28.0.13004108"``` (but obviously whatever is on your system)
+- I also had to add this
+```groovy
+    externalNativeBuild {
+        cmake {
+            version "3.21.5"
+        }
+    }
+```
+- Lastly, I had to add this line to my ```local.properties``` file for Android ```ndk.dir=/your/local/dir/to/Android/Sdk/ndk/28.0.13004108```
+
+## Transcription
 - After you've made sure you have all of the models you need in the ```assets/models/`` directory, add them to [models.dart](lib/models.dart)
 - I've included a number of different kinds in there to show how they are setup (please let me know if any are incorrect)
 - Then just push ```Run Benchmark```
@@ -140,3 +161,13 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 | sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | offline | 22.64 | 0.118 | 2344 |
 | sherpa-onnx-zipformer-large-en-2023-06-26 | offline | 30.28 | 0.079 | 1558 |
 | sherpa-onnx-zipformer-small-en-2023-06-26 | offline | 35.78 | 0.045 | 882 |
+
+## Run 6 (live streaming on phone)
+
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-moonshine-base-en-int8 | offline | 17.52 | 0.710* | 31531 |
+| sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | offline | 21.76 | 0.473 | 9346 |
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | online | 23.94 | 0.193 | 3719 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26.int8 | online | 26.80 | 0.967 | 18602 |
+* There was an outlier where my phone froze that increased one test to an RTF of 66, so the average was 1.713 if the outlier is included

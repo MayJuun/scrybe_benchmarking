@@ -1,6 +1,5 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
@@ -162,13 +161,12 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
       _audioController?.stream ?? const Stream.empty();
 
   Future<Uint8List> _readWavFile() async {
-    print('Reading WAV file: $_audioFilePath');
-    final file = File(_audioFilePath!);
-    final allBytes = await file.readAsBytes();
+    print('Loading WAV file from asset: $_audioFilePath');
+    final data = await rootBundle.load(_audioFilePath!);
+    final allBytes = data.buffer.asUint8List();
     if (allBytes.length < 44) {
       throw Exception('WAV file too small or invalid header: $_audioFilePath');
     }
-
     final pcmBytes = allBytes.sublist(44); // Skip WAV header
     _durationMs = _estimateAudioMs(pcmBytes.length);
     return pcmBytes;
