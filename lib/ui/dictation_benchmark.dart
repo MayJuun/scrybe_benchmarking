@@ -1,13 +1,18 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
+// This is just a simple UI that shows the recognized text and
+// has a button to start or stop the entire benchmark across models.
+
 class DictationBenchmarkScreen extends ConsumerStatefulWidget {
   final List<ModelBase> models;
 
-  const DictationBenchmarkScreen({super.key, required this.models});
+  const DictationBenchmarkScreen({
+    super.key,
+    required this.models,
+  });
 
   @override
   ConsumerState<DictationBenchmarkScreen> createState() =>
@@ -32,7 +37,9 @@ class _DictationBenchmarkScreenState
 
   @override
   Widget build(BuildContext context) {
+    // The user picks one model in a provider, but we also run multiple if needed
     final selectedModel = ref.watch(selectedModelProvider);
+
     final dictationState = selectedModel != null
         ? ref.watch(dictationBenchmarkProvider(selectedModel))
         : null;
@@ -45,7 +52,7 @@ class _DictationBenchmarkScreenState
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Show recognized text
+            // Show recognized text so far (the final transcript or partial accumulation)
             Expanded(
               child: SingleChildScrollView(
                 reverse: true,
@@ -55,7 +62,8 @@ class _DictationBenchmarkScreenState
               ),
             ),
             const SizedBox(height: 16),
-            // Show recognized text
+
+            // Show the current chunk/hypothesis text, if you want to see partial updates
             Expanded(
               child: SingleChildScrollView(
                 reverse: true,
@@ -78,43 +86,46 @@ class _DictationBenchmarkScreenState
                     : 'Start Test',
               ),
               onPressed: () async {
+                // If we are currently recording for a model, we stop
                 if (dictationState?.status == DictationStatus.recording) {
-                  // Stop the current dictation for the selected model
-                  final notifier = ref.read(
-                      dictationBenchmarkProvider(selectedModel!).notifier);
+                  final notifier =
+                      ref.read(dictationBenchmarkProvider(selectedModel!).notifier);
                   notifier.stopDictation();
-                } else {
-                  print('number of models: ${widget.models.length}');
-                  final allMetrics = <BenchmarkMetrics>[];
-
-                  for (final model in widget.models) {
-                    print('model: ${model.modelName}');
-                    // Set the current model
-                    ref.read(selectedModelProvider.notifier).state = model;
-
-                    // Use the model directly when fetching the notifier
-                    final notifier =
-                        ref.read(dictationBenchmarkProvider(model).notifier);
-
-                    // Run the model and collect its metrics
-                    await notifier.startDictation();
-                    allMetrics.addAll(notifier.metrics);
-                  }
-
-                  final outputDir = Directory(
-                      '${Directory.current.path}/assets/dictation_test');
-
-                  // Generate consolidated report after all models finish
-                  final reportGenerator = BenchmarkReportGenerator(
-                    metricsList: allMetrics,
-                    outputDir: outputDir.path,
-                  );
-                  await reportGenerator.generateReports();
-                  print('Generated benchmark reports in benchmark_results/');
+                  return;
                 }
+
+                // Otherwise, we do a full run of all models
+                print('Number of models to test: ${widget.models.length}');
+                final allMetrics = <BenchmarkMetrics>[];
+
+                for (final model in widget.models) {
+                  print('Running benchmark with model: ${model.modelName}');
+                  // Mark this as the selected model
+                  ref.read(selectedModelProvider.notifier).state = model;
+
+                  final notifier = ref.read(dictationBenchmarkProvider(model).notifier);
+
+                  // Start the dictation on the current model
+                  await notifier.startDictation();
+                  // Once it completes, gather metrics
+                  allMetrics.addAll(notifier.metrics);
+                }
+
+                // After all models are done, generate a consolidated report
+                final outputDir = Directory(
+                  '${Directory.current.path}/assets/dictation_test',
+                );
+
+                final reportGenerator = BenchmarkReportGenerator(
+                  metricsList: allMetrics,
+                  outputDir: outputDir.path,
+                );
+                await reportGenerator.generateReports();
+                print('Generated benchmark reports in benchmark_results/');
               },
             ),
-            // Error message if any
+
+            // Optional: show model name or errors
             if (selectedModel != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
@@ -124,7 +135,6 @@ class _DictationBenchmarkScreenState
                 ),
               ),
 
-            // Error message if any
             if (dictationState?.errorMessage != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),

@@ -37,6 +37,8 @@ Hypothesis Length: $hypothesisLength
 
 class WerCalculator {
   static WerStats getDetailedStats(String reference, String hypothesis) {
+    print('Reference: $reference');
+    print('Hypothesis: $hypothesis');
     final refWords = reference.toLowerCase().split(RegExp(r'\s+'));
     final hypWords = hypothesis.toLowerCase().split(RegExp(r'\s+'));
 

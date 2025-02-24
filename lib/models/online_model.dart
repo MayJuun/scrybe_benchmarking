@@ -1,22 +1,25 @@
 import 'dart:typed_data';
-
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 
+/// Represents an Online (streaming) Sherpa-ONNX model.
 class OnlineModel extends ModelBase {
   final OnlineRecognizer recognizer;
   OnlineStream? stream;
+  final _accumulatedSegments = <String>[];
 
   OnlineModel({required OnlineRecognizerConfig config})
       : recognizer = OnlineRecognizer(config),
         super(
-            modelName:
-                (config.model.tokens.split('/')..removeLast()).removeLast());
+          modelName:
+              (config.model.tokens.split('/')..removeLast()).removeLast(),
+        );
 
-  // Stream management
+  /// Create a new streaming context. Must be called before processing audio.
   bool createStream() {
     try {
       stream = recognizer.createStream();
+      _accumulatedSegments.clear();
       return true;
     } catch (e) {
       print('Failed to create stream for $modelName: $e');
@@ -24,6 +27,9 @@ class OnlineModel extends ModelBase {
     }
   }
 
+  /// Feed audio data to the streaming recognizer in small chunks
+  /// (mimics real-time). Returns either a partial hypothesis (if still in
+  /// the middle of speaking) or final text if an endpoint was detected.
   @override
   String processAudio(Uint8List audioData, int sampleRate) {
     if (stream == null) return '';
@@ -31,12 +37,29 @@ class OnlineModel extends ModelBase {
     final samples = convertBytesToFloat32(audioData);
     stream!.acceptWaveform(samples: samples, sampleRate: sampleRate);
 
-    OnlineRecognizerResult? result;
     while (recognizer.isReady(stream!)) {
       recognizer.decode(stream!);
-      result = recognizer.getResult(stream!);
     }
-    return result?.text ?? '';
+
+    final result = recognizer.getResult(stream!);
+    final text = result.text.trim();
+
+    if (recognizer.isEndpoint(stream!)) {
+      // Get the final text before resetting
+      if (text.isNotEmpty) {
+        _accumulatedSegments.add(text);
+        print('Added segment: $text');
+      }
+
+      // Only reset after we've captured the text
+      recognizer.reset(stream!);
+
+      final fullText = _accumulatedSegments.join(' ');
+      print('Current accumulated: $fullText');
+      return fullText;
+    }
+
+    return text; // Return partial
   }
 
   String finalizeAndGetResult() {
@@ -46,11 +69,23 @@ class OnlineModel extends ModelBase {
     while (recognizer.isReady(stream!)) {
       recognizer.decode(stream!);
     }
-    return recognizer.getResult(stream!).text;
+
+    // Get final text before closing
+    final lastResult = recognizer.getResult(stream!).text.trim();
+    if (lastResult.isNotEmpty &&
+        (_accumulatedSegments.isEmpty ||
+            lastResult != _accumulatedSegments.last)) {
+      _accumulatedSegments.add(lastResult);
+      print('Added final segment: $lastResult');
+    }
+
+    final finalText = _accumulatedSegments.join(' ');
+    print('Final accumulated text: $finalText');
+    return finalText;
   }
 
+  /// Freed on normal stop, but you can also forcibly close it here.
   void onRecordingStop() {
-    stream?.inputFinished();
     final finalText = finalizeAndGetResult();
     print('finalText: $finalText');
     stream?.free();

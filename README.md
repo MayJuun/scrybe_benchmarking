@@ -108,8 +108,16 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 
 
 ## Run 3
-
-# Test Data
-- Vital Signs ~4 hours
-- Covid Mechanical Ventilation ~2 hours
-- Musculoskeletal ~1 hour
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-moonshine-base-en-int8 | offline | 33.5909 | 0.592 | 11810 |
+| sherpa-onnx-nemo-ctc-en-conformer-large | offline | 43.9242 | 0.687 | 13716 |
+| sherpa-onnx-nemo-ctc-en-conformer-small | offline | 39.4848 | 0.100 | 1982 |
+| sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | offline | 38.6364 | 0.308 | 6074 |
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | online | 47.5909 | 0.068 | 1305 |
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-480ms | online | 46.7424 | 0.116 | 2234 |
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-80ms | online | 45.7121 | 0.352 | 6767 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile.int8 | online | 49.2424 | 0.062 | 1198 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26.int8 | online | 49.2121 | 0.070 | 1343 |
+| sherpa-onnx-zipformer-large-en-2023-06-26 | offline | 39.2424 | 0.206 | 4057 |
+| sherpa-onnx-zipformer-small-en-2023-06-26 | offline | 38.5455 | 0.109 | 2158 |
