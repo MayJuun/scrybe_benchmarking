@@ -7,19 +7,19 @@ import 'package:sherpa_onnx/sherpa_onnx.dart';
 Future<List<OfflineModel>> loadOfflineConfigs() async {
   final configs = <OfflineRecognizerConfig>[];
 
-  // Moonshine model (sherpa-onnx-moonshine-base-en-int8)
-  try {
-    configs.add(await createOfflineMoonshineConfig(
-      modelName: 'sherpa-onnx-moonshine-base-en-int8',
-      preprocessor: 'preprocess.onnx',
-      encoder: 'encode.int8.onnx',
-      uncachedDecoder: 'uncached_decode.int8.onnx',
-      cachedDecoder: 'cached_decode.int8.onnx',
-      tokens: 'tokens.txt',
-    ));
-  } catch (e) {
-    print('Failed to load Moonshine model: $e');
-  }
+  // // Moonshine model (sherpa-onnx-moonshine-base-en-int8)
+  // try {
+  //   configs.add(await createOfflineMoonshineConfig(
+  //     modelName: 'sherpa-onnx-moonshine-base-en-int8',
+  //     preprocessor: 'preprocess.onnx',
+  //     encoder: 'encode.int8.onnx',
+  //     uncachedDecoder: 'uncached_decode.int8.onnx',
+  //     cachedDecoder: 'cached_decode.int8.onnx',
+  //     tokens: 'tokens.txt',
+  //   ));
+  // } catch (e) {
+  //   print('Failed to load Moonshine model: $e');
+  // }
 
   // // Nemo Conformer CTC Large (sherpa-onnx-nemo-ctc-en-conformer-large)
   // try {
@@ -118,6 +118,35 @@ Future<List<OfflineModel>> loadOfflineConfigs() async {
 Future<List<OnlineModel>> loadOnlineConfigs() async {
   final configs = <OnlineRecognizerConfig>[];
 
+  // Nemo Streaming Fast Conformer Transducer (1040ms)
+  try {
+    configs.add(await createOnlineTransducerConfig(
+      modelName:
+          'sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms',
+      encoder: 'encoder.onnx',
+      decoder: 'decoder.onnx',
+      joiner: 'joiner.onnx',
+      tokens: 'tokens.txt',
+      modelType: 'conformer',
+    ));
+  } catch (e) {
+    print(
+        'Failed to load Nemo streaming fast conformer transducer (1040ms) model: $e');
+  }
+  // Zipformer2 Streaming (sherpa-onnx-streaming-zipformer-en-2023-06-26.int8)
+  try {
+    configs.add(await createOnlineTransducerConfig(
+      modelName: 'sherpa-onnx-streaming-zipformer-en-2023-06-26.int8',
+      encoder: 'encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+      decoder: 'decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+      joiner: 'joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
+      tokens: 'tokens.txt',
+      modelType: 'zipformer2',
+    ));
+  } catch (e) {
+    print('Failed to load Zipformer2 streaming model: $e');
+  }
+
   // TODO(Dokotela) - crashes every time
   // Nemo Streaming Fast Conformer CTC (80ms)
   // try {
@@ -131,21 +160,21 @@ Future<List<OnlineModel>> loadOnlineConfigs() async {
   // }
 
   // Nemo Streaming Fast Conformer Transducer (80ms)
-  try {
-    configs.add(await createOnlineTransducerConfig(
-      modelName: 'sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-80ms',
-      encoder: 'encoder.onnx',
-      decoder: 'decoder.onnx',
-      joiner: 'joiner.onnx',
-      tokens: 'tokens.txt',
-      modelType: 'conformer',
-    ));
-  } catch (e) {
-    print(
-        'Failed to load Nemo streaming fast conformer transducer (80ms) model: $e');
-  }
+  // try {
+  //   configs.add(await createOnlineTransducerConfig(
+  //     modelName: 'sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-80ms',
+  //     encoder: 'encoder.onnx',
+  //     decoder: 'decoder.onnx',
+  //     joiner: 'joiner.onnx',
+  //     tokens: 'tokens.txt',
+  //     modelType: 'conformer',
+  //   ));
+  // } catch (e) {
+  //   print(
+  //       'Failed to load Nemo streaming fast conformer transducer (80ms) model: $e');
+  // }
 
-  // // Nemo Streaming Fast Conformer Transducer (480ms)
+  // Nemo Streaming Fast Conformer Transducer (480ms)
   // try {
   //   configs.add(await createOnlineTransducerConfig(
   //     modelName:
@@ -161,23 +190,7 @@ Future<List<OnlineModel>> loadOnlineConfigs() async {
   //       'Failed to load Nemo streaming fast conformer transducer (480ms) model: $e');
   // }
 
-  // // Nemo Streaming Fast Conformer Transducer (1040ms)
-  // try {
-  //   configs.add(await createOnlineTransducerConfig(
-  //     modelName:
-  //         'sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms',
-  //     encoder: 'encoder.onnx',
-  //     decoder: 'decoder.onnx',
-  //     joiner: 'joiner.onnx',
-  //     tokens: 'tokens.txt',
-  //     modelType: 'conformer',
-  //   ));
-  // } catch (e) {
-  //   print(
-  //       'Failed to load Nemo streaming fast conformer transducer (1040ms) model: $e');
-  // }
-
-  // // Mobile Zipformer Model
+  // Mobile Zipformer Model
   // try {
   //   configs.add(await createOnlineTransducerConfig(
   //     modelName: 'sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile.int8',
@@ -189,20 +202,6 @@ Future<List<OnlineModel>> loadOnlineConfigs() async {
   //   ));
   // } catch (e) {
   //   print('Failed to load Mobile Zipformer model: $e');
-  // }
-
-  // // Zipformer2 Streaming (sherpa-onnx-streaming-zipformer-en-2023-06-26.int8)
-  // try {
-  //   configs.add(await createOnlineTransducerConfig(
-  //     modelName: 'sherpa-onnx-streaming-zipformer-en-2023-06-26.int8',
-  //     encoder: 'encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
-  //     decoder: 'decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
-  //     joiner: 'joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx',
-  //     tokens: 'tokens.txt',
-  //     modelType: 'zipformer2',
-  //   ));
-  // } catch (e) {
-  //   print('Failed to load Zipformer2 streaming model: $e');
   // }
 
   return configs.map((e) => OnlineModel(config: e)).toList();

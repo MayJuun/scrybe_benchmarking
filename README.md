@@ -121,3 +121,14 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 | sherpa-onnx-streaming-zipformer-en-2023-06-26.int8 | online | 49.2121 | 0.070 | 1343 |
 | sherpa-onnx-zipformer-large-en-2023-06-26 | offline | 39.2424 | 0.206 | 4057 |
 | sherpa-onnx-zipformer-small-en-2023-06-26 | offline | 38.5455 | 0.109 | 2158 |
+
+## Run 4
+## Overall Results
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | online | 23.94 | 0.079 | 1515 |
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-480ms | online | 27.43 | 0.124 | 2394 |
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-80ms | online | 33.15 | 0.351 | 6746 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile.int8 | online | 26.95 | 0.077 | 1489 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26.int8 | online | 26.80 | 0.086 | 1651 |
+
