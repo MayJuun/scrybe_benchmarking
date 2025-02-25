@@ -1,115 +1,56 @@
+// ignore_for_file: avoid_print
+
 import 'dart:async';
-import 'dart:convert';
-import 'package:flutter/services.dart';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
+import 'package:sherpa_onnx/sherpa_onnx.dart';
 
 /// Uses a [ModelBase] (either [OnlineModel] or [OfflineModel]) to process audio
 /// from test WAV files, simulating real-life dictation (online) or doing batch
 /// decoding (offline).
 class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   final Ref ref;
-  final ModelBase model;
-  final int sampleRate;
+
+  // sherpa_onnx objects
+  final ModelBase _model;
   late final TranscriptionCombiner _transcriptionCombiner =
       TranscriptionCombiner(config: TranscriptionConfig());
+  late final VoiceActivityDetector _vad;
 
-  // Used only for offline models: we accumulate raw audio in small chunks.
-  late final RollingCache _audioCache;
-  Timer? _chunkTimer;
-
-  // File management
-  final List<String> _testFiles = [];
-  final Map<String, String> _referenceTranscripts = {};
-  final Map<String, int> _fileDurations = {};
-  int _currentFileIndex = -1;
-  Completer<void>? _processingCompleter;
-
-  // Add these properties to your class
-  final bool _isInSilence = false;
-  final int _silenceFrameCount = 0;
-  final int _silenceThreshold = 500; // Adjust based on your audio format
-  final Duration _maxWaitTime =
-      Duration(seconds: 3); // Maximum time before forced processing
-  DateTime? _lastProcessingTime;
+  // Used only for offline _models: we accumulate raw audio in small chunks.
+  late final RollingCache _rollingCache;
+  final TestFiles _testFiles;
 
   // Timing
-  Stopwatch? processingStopwatch;
+  Stopwatch? _processingStopwatch;
   Duration _accumulatedProcessingTime = Duration.zero;
+  final int sampleRate;
 
   // Collect metrics from each file
   final List<BenchmarkMetrics> _allMetrics = [];
+  Completer<void>? _processingCompleter;
 
   DictationBenchmarkNotifier({
     required this.ref,
-    required this.model,
+    required ModelBase model,
     this.sampleRate = 16000,
-  }) : super(const DictationState()) {
-    _audioCache = RollingCache(
+    required TestFiles testFiles,
+  })  : _testFiles = testFiles,
+        _model = model,
+        super(const DictationState()) {
+    _rollingCache = RollingCache(
       sampleRate: sampleRate,
       bitDepth: 2,
-      durationSeconds:
-          model is OfflineModel ? (model as OfflineModel).cacheSize : 10,
+      durationSeconds: model is OfflineModel ? (model).cacheSize : 10,
     );
   }
 
-  /// Load test WAV + SRT transcripts from assets, store them in memory
-  /// so we can run one after another.
-  Future<void> loadTestFiles() async {
-    try {
-      final manifest = await rootBundle.loadString('AssetManifest.json');
-      final Map<String, dynamic> manifestMap = json.decode(manifest);
-
-      // Filter for `assets/dictation_test/test_files/*.wav`
-      _testFiles.addAll(
-        manifestMap.keys
-            .where((String key) =>
-                key.startsWith('assets/dictation_test/test_files/') &&
-                key.endsWith('.wav'))
-            .toList(),
-      );
-
-      // Load transcripts (SRT files) and measure WAV durations
-      for (final wavFile in _testFiles) {
-        final srtFile = wavFile.replaceAll('.wav', '.srt');
-        try {
-          final srtContent = await rootBundle.loadString(srtFile);
-          _referenceTranscripts[wavFile] = _stripSrt(srtContent);
-        } catch (e) {
-          // If no SRT file, store empty reference
-          _referenceTranscripts[wavFile] = '';
-        }
-
-        // Prepare the mock recorder so we can measure the file length
-        final recorder = ref.read(mockRecorderProvider.notifier);
-        await recorder.setAudioFile(wavFile);
-        await recorder.initialize(sampleRate: sampleRate);
-        _fileDurations[wavFile] = recorder.getAudioDuration();
-      }
-
-      _currentFileIndex = 0;
-      print('Loaded ${_testFiles.length} test files with '
-          '${_referenceTranscripts.length} transcripts');
-    } catch (e) {
-      print('Error loading test files: $e');
-      _testFiles.clear();
-      _currentFileIndex = -1;
+  Future<void> init() async {
+    if (_testFiles.isEmpty) {
+      await _testFiles.loadTestFiles();
     }
-  }
-
-  /// Convert SRT text to a simple raw transcript (remove timestamps, indexes).
-  String _stripSrt(String text) {
-    final lines = text.split('\n');
-    final sb = StringBuffer();
-    for (final l in lines) {
-      final trimmed = l.trim();
-      if (trimmed.isEmpty) continue;
-      // Skip lines that are just numbers or contain `-->`
-      if (RegExp(r'^\d+$').hasMatch(trimmed)) continue;
-      if (trimmed.contains('-->')) continue;
-      sb.write('$trimmed ');
-    }
-    return sb.toString().trim();
+    _vad = await loadSileroVad();
   }
 
   /// Start a dictation “run” for the current file. If called repeatedly,
@@ -119,13 +60,13 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     _processingCompleter ??= Completer<void>();
 
     if (_testFiles.isEmpty) {
-      await loadTestFiles();
+      await _testFiles.loadTestFiles();
     }
-    if (_testFiles.isEmpty || _currentFileIndex >= _testFiles.length) {
+    if (_testFiles.isEmpty ||
+        _testFiles.currentFileIndex >= _testFiles.length) {
       state = state.copyWith(
-        status: DictationStatus.error,
-        errorMessage: 'No test files available',
-      );
+          status: DictationStatus.error,
+          errorMessage: 'No test files available');
       return;
     }
 
@@ -133,18 +74,17 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
       // Clear state, get ready to record
       state =
           state.copyWith(status: DictationStatus.recording, fullTranscript: '');
-      _audioCache.clear();
-
-      final recorder = ref.read(mockRecorderProvider.notifier);
+      _rollingCache.clear();
 
       // Prepare recorder for the next file
-      await recorder.setAudioFile(_testFiles[_currentFileIndex]);
+      final recorder = ref.read(mockRecorderProvider.notifier);
+      await recorder.setAudioFile(_testFiles.currentFile);
       await recorder.initialize(sampleRate: sampleRate);
       await recorder.startRecorder();
 
       // If this is an online model, create a new stream
-      if (model is OnlineModel) {
-        if (!(model as OnlineModel).createStream()) {
+      if (_model is OnlineModel) {
+        if (!(_model).createStream()) {
           state = state.copyWith(
             status: DictationStatus.error,
             errorMessage: 'Failed to create online stream',
@@ -160,16 +100,9 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
         onComplete: _onFileComplete,
       );
 
-      // If offline, set up a periodic timer to batch decode
-      if (model is OfflineModel) {
-        _chunkTimer?.cancel();
-        _chunkTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-          _processChunk(); // decode 1-second chunks
-        });
-      }
-
-      print('Processing file ${_currentFileIndex + 1}/${_testFiles.length}: '
-          '${_testFiles[_currentFileIndex]}');
+      print('Processing file ${_testFiles.currentFileIndex + 1}'
+          '/${_testFiles.length}: '
+          '${_testFiles.currentFile}');
     } catch (e) {
       state = state.copyWith(
         status: DictationStatus.error,
@@ -183,71 +116,76 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
 
   /// This callback fires for **each chunk** of audio from the recorder.
   /// For online models, we decode immediately, producing partial or final text.
-  /// For offline models, we just accumulate audio in `_audioCache`.
+  /// For offline models, we just accumulate audio in `_rollingCache`.
   void _onAudioData(Uint8List audioData) {
     if (state.status != DictationStatus.recording) return;
 
     try {
-      if (model is OnlineModel) {
-        // Online: decode right away
-        processingStopwatch = Stopwatch()..start();
-        final recognizedText = model.processAudio(audioData, sampleRate);
-        processingStopwatch?.stop();
-        _accumulatedProcessingTime +=
-            processingStopwatch?.elapsed ?? Duration.zero;
+      // Convert the incoming 16-bit PCM chunk to the expected Float32List format.
+      final Float32List floatAudio = convertBytesToFloat32(audioData);
+      // Feed the chunk into the VAD.
+      _vad.acceptWaveform(floatAudio);
+      // Process complete speech segments from the VAD.
+      while (!_vad.isEmpty()) {
+        final segment = _vad.front();
+        final samples = segment.samples;
+        _rollingCache.addSegment(samples);
 
-        if (recognizedText.isNotEmpty) {
-          // We must check if the model signaled an endpoint (final) or just partial
-          final onlineModel = (model as OnlineModel);
-          final isEndpoint =
-              onlineModel.recognizer.isEndpoint(onlineModel.stream!);
+        // Only proceed if we are using an offline model.
+        if (_model is OfflineModel) {
+          final recognizer = _model.recognizer;
+         // Use the recognizer inside the offline model.
+          final asrStream = recognizer.createStream();
+          asrStream.acceptWaveform(samples: samples, sampleRate: sampleRate);
+          recognizer.decode(asrStream);
+          final result = recognizer.getResult(asrStream);
+          asrStream.free();
 
-          if (isEndpoint) {
-            // This recognizedText is final for that “segment”
-            // Append it to the full transcript
-            final oldTranscript = state.fullTranscript;
-            final newTranscript = oldTranscript.isEmpty
-                ? recognizedText
-                : '$oldTranscript $recognizedText';
-
-            state = state.copyWith(
-              currentChunkText: recognizedText,
-              fullTranscript: newTranscript,
-            );
-          } else {
-            // Just a partial. Update UI with the partial text, do not overwrite final
-            state = state.copyWith(currentChunkText: recognizedText);
-          }
+          // Merge this segment's transcript with the existing full transcript.
+          final combinedText = _transcriptionCombiner.combineTranscripts(
+            state.fullTranscript,
+            result.text,
+          );
+          state = state.copyWith(
+            currentChunkText: result.text,
+            fullTranscript: combinedText,
+          );
         }
-      } else {
-        // Offline model: accumulate raw data
-        _audioCache.addChunk(audioData);
+
+        // Remove the processed segment from the VAD buffer.
+        _vad.pop();
       }
     } catch (e) {
-      print('Error processing audio data chunk: $e');
+      print('Error processing audio data chunk with VAD: $e');
     }
   }
 
   /// Only for offline: process the RollingCache audio (e.g., every 1s).
   /// We decode the entire cache, then combine transcripts.
   void _processChunk() {
-    if (model is! OfflineModel) return;
-    if (_audioCache.isEmpty) return;
+    if (_model is! OfflineModel) return;
+    if (_rollingCache.isEmpty) return;
 
     try {
-      final audioData = _audioCache.getData();
+      final audioData = _rollingCache.getData();
+      print(
+          'Processing audio chunk of ${audioData.length} bytes (${audioData.length / (2 * sampleRate)} seconds)');
 
-      processingStopwatch = Stopwatch()..start();
-      final transcriptionResult = model.processAudio(audioData, sampleRate);
-      processingStopwatch?.stop();
+      _processingStopwatch = Stopwatch()..start();
+      final transcriptionResult = _model.processAudio(audioData, sampleRate);
+      _processingStopwatch?.stop();
       _accumulatedProcessingTime +=
-          processingStopwatch?.elapsed ?? Duration.zero;
+          _processingStopwatch?.elapsed ?? Duration.zero;
+
+      print('Current transcript before combining: "${state.fullTranscript}"');
+      print('New transcription result: "$transcriptionResult"');
 
       final combinedText = _transcriptionCombiner.combineTranscripts(
         state.fullTranscript,
         transcriptionResult,
       );
-      // print('Partial text: $combinedText');
+
+      print('Combined transcript: "$combinedText"');
 
       state = state.copyWith(
         currentChunkText: transcriptionResult,
@@ -262,47 +200,93 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     }
   }
 
-  /// Called automatically once the WAV file finishes streaming to the model.
   Future<void> _onFileComplete() async {
-    final currentFile = _testFiles[_currentFileIndex];
+    // Flush the VAD to force it to output any pending speech segments.
+    _vad.flush();
 
-    // For online, get final text before stopping
-    if (model is OnlineModel) {
-      final finalText = (model as OnlineModel).finalizeAndGetResult();
-      if (finalText.isNotEmpty) {
-        state = state.copyWith(fullTranscript: finalText);
-        print('Updated final transcript: $finalText');
+    // Process any remaining segments from the VAD.
+    while (!_vad.isEmpty()) {
+      final segment = _vad.front();
+      final samples = segment.samples;
+      final startTime = segment.start.toDouble() / sampleRate;
+      final endTime = startTime + samples.length.toDouble() / sampleRate;
+
+      // Use the recognizer from the OfflineModel to process this segment.
+      if (_model is OfflineModel) {
+        final offlineModel = _model;
+        final asrStream = offlineModel.recognizer.createStream();
+        asrStream.acceptWaveform(samples: samples, sampleRate: sampleRate);
+        offlineModel.recognizer.decode(asrStream);
+        final result = offlineModel.recognizer.getResult(asrStream);
+        asrStream.free();
+
+        print('Final VAD segment [$startTime - $endTime]: ${result.text}');
+
+        final updatedTranscript = _transcriptionCombiner.combineTranscripts(
+          state.fullTranscript,
+          result.text,
+        );
+        state = state.copyWith(fullTranscript: updatedTranscript);
+      } else {
+        // If model is not OfflineModel, you may handle it differently.
+        print('Model is not offline; skipping VAD segment processing.');
+      }
+
+      _vad.pop();
+    }
+
+    // Now process any remaining audio in the rolling cache (for offline models).
+    if (_model is OfflineModel && _rollingCache.isNotEmpty) {
+      final remainingAudio = _rollingCache.getData();
+      if (remainingAudio.length >= sampleRate * 2) {
+        // At least 1 second.
+        print(
+            'Final processing on remaining cache: ${remainingAudio.length} bytes');
+        _processingStopwatch = Stopwatch()..start();
+        final finalTranscription =
+            _model.processAudio(remainingAudio, sampleRate);
+        _processingStopwatch?.stop();
+        _accumulatedProcessingTime +=
+            _processingStopwatch?.elapsed ?? Duration.zero;
+        final updatedTranscript = _transcriptionCombiner.combineTranscripts(
+          state.fullTranscript,
+          finalTranscription,
+        );
+        state = state.copyWith(fullTranscript: updatedTranscript);
+        print('Updated final transcript (offline): "${state.fullTranscript}"');
+      } else {
+        print('Remaining audio cache too small to process.');
       }
     }
 
-    // Gather metrics for this file
+    // Collect metrics for this file.
+    final currentFile = _testFiles.currentFile;
     final metrics = BenchmarkMetrics.create(
-      modelName: model.modelName,
-      modelType: model is OnlineModel ? 'online' : 'offline',
+      modelName: _model.modelName,
+      modelType: _model is OnlineModel ? 'online' : 'offline',
       wavFile: currentFile,
       transcription: state.fullTranscript,
-      reference: _referenceTranscripts[currentFile] ?? '',
+      reference: _testFiles.currentReferenceTranscript ?? '',
       processingDuration: _accumulatedProcessingTime,
-      audioLengthMs: _fileDurations[currentFile] ?? 0,
+      audioLengthMs: _testFiles.currentFileDuration ?? 0,
     );
-
     print('Creating metrics with transcript: ${state.fullTranscript}');
     _allMetrics.add(metrics);
 
+    // Stop the current dictation session (stop recorder, clear cache, etc.).
     await stopDictation();
 
-    // Reset timing
+    // Reset timing.
     _accumulatedProcessingTime = Duration.zero;
-    processingStopwatch = null;
+    _processingStopwatch = null;
 
-    // Move on to next file
-    if (_currentFileIndex < _testFiles.length - 1) {
-      _currentFileIndex++;
+    // If there are more files, move on to the next one.
+    if (_testFiles.currentFileIndex < _testFiles.length - 1) {
+      _testFiles.currentFileIndex++;
       await startDictation();
     } else {
-      print('All test files processed for ${model.modelName}');
+      print('All test files processed for ${_model.modelName}');
       state = state.copyWith(status: DictationStatus.idle);
-
       _processingCompleter?.complete();
       _processingCompleter = null;
     }
@@ -316,18 +300,14 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     if (state.status != DictationStatus.recording) return;
 
     try {
-      // Stop periodic chunk processing
-      _chunkTimer?.cancel();
-      _chunkTimer = null;
-
       // For offline, process anything left in the cache
-      if (model is OfflineModel && _audioCache.isNotEmpty) {
+      if (_model is OfflineModel && _rollingCache.isNotEmpty) {
         _processChunk();
       }
 
       // For online, finalize the last chunk of decoding
-      if (model is OnlineModel) {
-        final finalText = (model as OnlineModel).finalizeAndGetResult();
+      if (_model is OnlineModel) {
+        final finalText = (_model).finalizeAndGetResult();
         if (finalText.isNotEmpty) {
           // Append to full transcript in case we missed leftover partial
           final oldTranscript = state.fullTranscript;
@@ -346,7 +326,7 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
       await recorder.stopRecorder();
 
       // Clear any leftover
-      _audioCache.clear();
+      _rollingCache.clear();
 
       // Go idle
       state = state.copyWith(status: DictationStatus.idle);
@@ -361,13 +341,27 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
 
   @override
   void dispose() {
-    _chunkTimer?.cancel();
-    _audioCache.clear();
+    _rollingCache.clear();
     super.dispose();
   }
 }
 
 final dictationBenchmarkProvider = StateNotifierProvider.family<
     DictationBenchmarkNotifier, DictationState, ModelBase>(
-  (ref, model) => DictationBenchmarkNotifier(ref: ref, model: model),
+  (ref, model) {
+    // Inject the dependency via a callback.
+    final testFiles = TestFiles(
+      getFileDuration: (wavFile, sampleRate) async {
+        final recorder = ref.read(mockRecorderProvider.notifier);
+        await recorder.setAudioFile(wavFile);
+        await recorder.initialize(sampleRate: sampleRate);
+        return recorder.getAudioDuration();
+      },
+    );
+    return DictationBenchmarkNotifier(
+      ref: ref,
+      model: model,
+      testFiles: testFiles,
+    );
+  },
 );

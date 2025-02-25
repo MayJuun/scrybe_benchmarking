@@ -103,7 +103,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
     if (state.status != DictationStatus.recording) return;
 
     try {
-      _audioCache.addChunk(audioData);
+      // _audioCache.addChunk(audioData);
     } catch (e) {
       print('Error processing audio data chunk: $e');
     }

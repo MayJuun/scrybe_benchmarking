@@ -107,8 +107,11 @@ flutter:
     # - assets/models/sherpa-onnx-zipformer-small-en-2023-06-26/tokens.txt
 
     # sherpa-onnx-online-punct-en-2024-08-06 (punctuation model)
-    - assets/models/sherpa-onnx-online-punct-en-2024-08-06/model.onnx
-    - assets/models/sherpa-onnx-online-punct-en-2024-08-06/bpe.vocab
+    # - assets/models/sherpa-onnx-online-punct-en-2024-08-06/model.onnx
+    # - assets/models/sherpa-onnx-online-punct-en-2024-08-06/bpe.vocab
+
+    # VAD
+    - assets/models/silero_vad.onnx
 
     # Test files for dictation (all available test WAVs and transcripts)
     - assets/dictation_test/

@@ -107,6 +107,8 @@ class _DictationBenchmarkScreenState
 
                   final notifier =
                       ref.read(dictationBenchmarkProvider(model).notifier);
+                  
+                  await notifier.init();
 
                   // Start the dictation on the current model
                   await notifier.startDictation();

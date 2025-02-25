@@ -1,9 +1,24 @@
 // ignore_for_file: avoid_print
 
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
+import 'package:sherpa_onnx/sherpa_onnx.dart';
+
+Future<VoiceActivityDetector> loadSileroVad() async {
+  final sileroVadConfig = SileroVadModelConfig(
+    model: await copyAssetFile(null, 'silero_vad.onnx'),
+    minSilenceDuration: 0.25,
+    minSpeechDuration: 0.5,
+    maxSpeechDuration: 5.0,
+  );
+
+  final vadConfig =
+      VadModelConfig(sileroVad: sileroVadConfig, numThreads: 1, debug: true);
+
+  return VoiceActivityDetector(config: vadConfig, bufferSizeInSeconds: 10);
+}
 
 /// Loads all available offline models (except punctuation).
-Future<List<OfflineModel>> loadOfflineConfigs() async {
+Future<List<OfflineModel>> loadOfflineModels() async {
   final models = <OfflineModel>[];
 
   // Moonshine model (sherpa-onnx-moonshine-base-en-int8)
@@ -116,7 +131,7 @@ Future<List<OfflineModel>> loadOfflineConfigs() async {
 }
 
 /// Loads all available online models (again, excluding punctuation).
-Future<List<OnlineModel>> loadOnlineConfigs() async {
+Future<List<OnlineModel>> loadOnlineModels() async {
   final models = <OnlineModel>[];
 
   // Nemo Streaming Fast Conformer Transducer (1040ms)

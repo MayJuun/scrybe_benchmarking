@@ -34,8 +34,8 @@ class LoadModelsNotifier extends Notifier<LoadModelsState> {
 
   Future<void> _initModels() async {
     try {
-      final onlineConfigs = await loadOnlineConfigs();
-      final offlineConfigs = await loadOfflineConfigs();
+      final onlineConfigs = await loadOnlineModels();
+      final offlineConfigs = await loadOfflineModels();
 
       state = state.copyWith(
         isLoading: false,
