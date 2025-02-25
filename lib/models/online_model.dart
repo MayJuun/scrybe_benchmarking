@@ -39,6 +39,13 @@ class OnlineModel extends AsrModel {
     return result.text;
   }
 
+  void resetStream() {
+    if (_stream != null) {
+      _stream!.free();
+      _stream = recognizer.createStream();
+    }
+  }
+
   @override
   void dispose() {
     _stream?.free();
