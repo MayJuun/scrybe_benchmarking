@@ -13,20 +13,17 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
 
   // sherpa_onnx objects
   final OfflineModel _model;
-  late final TranscriptionCombiner _transcriptionCombiner =
-      TranscriptionCombiner(config: TranscriptionConfig());
-  late final VoiceActivityDetector _vad;
-
-  // Used only for offline _models: we accumulate raw audio in small chunks.
-  late final RollingCache _rollingCache;
-  final TestFiles _testFiles;
+  final int sampleRate;
+  final RollingCache _rollingCache = RollingCache();
+  Timer? _processingTimer;
+  late VoiceActivityDetector _vad;
 
   // Timing
   Stopwatch? _processingStopwatch;
   Duration _accumulatedProcessingTime = Duration.zero;
-  final int sampleRate;
 
   // Collect metrics from each file
+  final TestFiles _testFiles;
   final List<BenchmarkMetrics> _allMetrics = [];
   Completer<void>? _processingCompleter;
 
@@ -37,13 +34,7 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     required TestFiles testFiles,
   })  : _testFiles = testFiles,
         _model = model,
-        super(const DictationState()) {
-    _rollingCache = RollingCache(
-      sampleRate: sampleRate,
-      bitDepth: 2,
-      durationSeconds: model.cacheSize,
-    );
-  }
+        super(const DictationState());
 
   Future<void> init() async {
     if (_testFiles.isEmpty) {
@@ -74,7 +65,6 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
       state =
           state.copyWith(status: DictationStatus.recording, fullTranscript: '');
       _rollingCache.clear();
-
       // Prepare recorder for the next file
       final recorder = ref.read(mockRecorderProvider.notifier);
       await recorder.setAudioFile(_testFiles.currentFile);
@@ -87,6 +77,9 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
         _onAudioData,
         onComplete: _onFileComplete,
       );
+      _processingTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+        _processCache();
+      });
 
       print('Processing file ${_testFiles.currentFileIndex + 1}'
           '/${_testFiles.length}: '
@@ -109,17 +102,23 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     if (state.status != DictationStatus.recording) return;
 
     try {
-      // Convert the incoming 16-bit PCM chunk to the expected Float32List format.
       final Float32List floatAudio = convertBytesToFloat32(audioData);
-      // Feed the chunk into the VAD.
       _vad.acceptWaveform(floatAudio);
-      // Process complete speech segments from the VAD.
       while (!_vad.isEmpty()) {
         final segment = _vad.front();
         final samples = segment.samples;
-        _rollingCache.addSegment(samples);
-        _vad.pop();
+
+        // Convert to format needed by _rollingCache if necessary
+        final Uint8List audioData = convertFloat32ToBytes(samples);
+
+        // Add to your existing rolling cache
+        _rollingCache.addChunk(audioData);
+
+        // Use your existing method to process it
         _processCache();
+
+        // Remove this segment from the VAD queue
+        _vad.pop();
       }
     } catch (e) {
       print('Error processing audio data chunk with VAD: $e');
@@ -145,10 +144,8 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
       print('Current transcript before combining: "${state.fullTranscript}"');
       print('New transcription result: "$transcriptionResult"');
 
-      final combinedText = _transcriptionCombiner.combineTranscripts(
-        state.fullTranscript,
-        transcriptionResult,
-      );
+      final combinedText =
+          '${state.fullTranscript} $transcriptionResult'.trim();
 
       print('Combined transcript: "$combinedText"');
 
@@ -156,6 +153,7 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
         currentChunkText: transcriptionResult,
         fullTranscript: combinedText,
       );
+      _rollingCache.clear();
     } catch (e) {
       print('Error during chunk processing: $e');
       state = state.copyWith(
@@ -207,26 +205,21 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     if (state.status != DictationStatus.recording) return;
 
     try {
-      // Stop the recorder entirely
+      _processingTimer?.cancel();
       final recorder = ref.read(mockRecorderProvider.notifier);
       await recorder.stopStreaming();
-      // Flush the VAD to force it to output any pending speech segments.
       _vad.flush();
-
-      // Process any remaining segments from the VAD.
       while (!_vad.isEmpty()) {
         final segment = _vad.front();
         final samples = segment.samples;
-        _rollingCache.addSegment(samples);
+        final audioData = convertFloat32ToBytes(samples);
+        _rollingCache.addChunk(audioData);
         _vad.pop();
-        _processCache();
       }
-
+      _processCache();
       await recorder.stopRecorder();
-      // Clear any leftover
       _rollingCache.clear();
 
-      // Go idle
       state = state.copyWith(status: DictationStatus.idle);
     } catch (e) {
       print('Error stopping dictation: $e');
@@ -240,6 +233,7 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   @override
   void dispose() {
     _rollingCache.clear();
+    _vad.free();
     super.dispose();
   }
 }

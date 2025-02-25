@@ -6,15 +6,16 @@ import 'package:sherpa_onnx/sherpa_onnx.dart';
 Future<VoiceActivityDetector> loadSileroVad() async {
   final sileroVadConfig = SileroVadModelConfig(
     model: await copyAssetFile(null, 'silero_vad.onnx'),
-    minSilenceDuration: 0.25,
-    minSpeechDuration: 0.5,
-    maxSpeechDuration: 5.0,
+    threshold: 0.3,
+    minSilenceDuration: 0.2,
+    minSpeechDuration: 0.1,
+    maxSpeechDuration: 10.0,
   );
 
   final vadConfig =
       VadModelConfig(sileroVad: sileroVadConfig, numThreads: 1, debug: true);
 
-  return VoiceActivityDetector(config: vadConfig, bufferSizeInSeconds: 10);
+  return VoiceActivityDetector(config: vadConfig, bufferSizeInSeconds: 15);
 }
 
 /// Loads all available offline models (except punctuation).
@@ -30,7 +31,7 @@ Future<List<OfflineModel>> loadOfflineModels() async {
       uncachedDecoder: 'uncached_decode.int8.onnx',
       cachedDecoder: 'cached_decode.int8.onnx',
       tokens: 'tokens.txt',
-      cacheSize: 15,
+      cacheSize: 6,
     ));
   } catch (e) {
     print('Failed to load Moonshine model: $e');
@@ -47,7 +48,7 @@ Future<List<OfflineModel>> loadOfflineModels() async {
       numThreads: 1,
       modelType: 'nemo_transducer',
       debug: true,
-      cacheSize: 20,
+      cacheSize: 6,
     ));
   } catch (e) {
     print('Failed to load Nemo fast conformer transducer model: $e');

@@ -44,26 +44,19 @@ class DictationState {
 /// you can retrieve via [model.recognizer].
 class DictationNotifier extends StateNotifier<DictationState> {
   final Ref ref;
-  final OfflineModel model;
-  final int sampleRate;
-  late final TranscriptionCombiner _transcriptionCombiner =
-      TranscriptionCombiner(config: TranscriptionConfig());
 
-  late final RollingCache _audioCache;
-  Timer? _stopTimer;
-  Timer? _chunkTimer;
+  // sherpa_onnx objects
+  final OfflineModel _model;
+  final int sampleRate;
+  final RollingCache _rollingCache = RollingCache();
+  Timer? _processingTimer;
 
   DictationNotifier({
     required this.ref,
-    required this.model,
+    required OfflineModel model,
     this.sampleRate = 16000,
-  }) : super(const DictationState()) {
-    _audioCache = RollingCache(
-      sampleRate: sampleRate,
-      bitDepth: 2, // 16-bit audio = 2 bytes
-      durationSeconds: 10,
-    );
-  }
+  })  : _model = model,
+        super(const DictationState());
 
   Future<void> startDictation() async {
     if (state.status == DictationStatus.recording) return;
@@ -71,23 +64,16 @@ class DictationNotifier extends StateNotifier<DictationState> {
     try {
       state =
           state.copyWith(status: DictationStatus.recording, fullTranscript: '');
-      _audioCache.clear();
-
+      _rollingCache.clear();
       // Start recorder
       final recorder = ref.read(recorderProvider.notifier);
       await recorder.initialize(sampleRate: sampleRate);
       await recorder.startRecorder();
       await recorder.startStreaming(_onAudioData);
 
-      // Set a timer to process small chunks
-      _chunkTimer?.cancel();
-      _chunkTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        _processChunk();
+      _processingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        _processCache();
       });
-
-      // Auto-stop after 10s
-      _stopTimer?.cancel();
-      _stopTimer = Timer(const Duration(seconds: 20), stopDictation);
 
       print('Dictation started successfully');
     } catch (e) {
@@ -103,26 +89,28 @@ class DictationNotifier extends StateNotifier<DictationState> {
     if (state.status != DictationStatus.recording) return;
 
     try {
-      // _audioCache.addChunk(audioData);
+      _rollingCache.addChunk(audioData);
     } catch (e) {
       print('Error processing audio data chunk: $e');
     }
   }
 
-  void _processChunk() {
-    if (_audioCache.isEmpty) return;
+  void _processCache() {
+    if (_rollingCache.isEmpty) return;
 
     try {
-      final audioData = _audioCache.getData();
-      final transcriptionResult = model.processAudio(audioData, sampleRate);
-      final combinedText = _transcriptionCombiner.combineTranscripts(
-          state.fullTranscript, transcriptionResult);
+      final audioData = _rollingCache.getData();
+      final transcriptionResult = _model.processAudio(audioData, sampleRate);
 
+      final combinedText = '${state.fullTranscript} $transcriptionResult';
+
+      print('Combined transcript: "$combinedText"');
       state = state.copyWith(
         status: DictationStatus.recording,
         currentChunkText: transcriptionResult,
         fullTranscript: combinedText,
       );
+      _rollingCache.clear();
     } catch (e) {
       print('Error during chunk processing: $e');
       state = state.copyWith(
@@ -137,48 +125,16 @@ class DictationNotifier extends StateNotifier<DictationState> {
     if (state.status != DictationStatus.recording) return;
 
     try {
-      // Cancel timers first
-      _stopTimer?.cancel();
-      _stopTimer = null;
-      _chunkTimer?.cancel();
-      _chunkTimer = null;
-
-      // Stop the recorder before processing final audio
+      _processingTimer?.cancel();
       final recorder = ref.read(mockRecorderProvider.notifier);
       await recorder.stopStreaming();
+      _processCache();
       await recorder.stopRecorder();
-
-      // Process any remaining audio before clearing
-      if (_audioCache.isNotEmpty) {
-        print('Processing final audio chunk...');
-        final finalAudioData = _audioCache.getData();
-        final finalTranscription =
-            model.processAudio(finalAudioData, sampleRate);
-
-        // Combine with existing transcript
-        final finalText = _transcriptionCombiner.combineTranscripts(
-          state.fullTranscript,
-          finalTranscription,
-        );
-
-        print('Final chunk transcription: $finalTranscription');
-        print('Final complete transcript: $finalText');
-
-        state = state.copyWith(
-          status: DictationStatus.finishing,
-          currentChunkText: finalTranscription,
-          fullTranscript: finalText,
-        );
-      }
-
-      // Clear cache after processing
-      _audioCache.clear();
+      _rollingCache.clear();
 
       // Update final state
-      state = state.copyWith(
-        status: DictationStatus.idle,
-        currentChunkText: '', // Clear current chunk text
-      );
+      state =
+          state.copyWith(status: DictationStatus.idle, currentChunkText: '');
     } catch (e) {
       print('Error stopping dictation: $e');
       state = state.copyWith(
@@ -190,9 +146,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
 
   @override
   void dispose() {
-    _stopTimer?.cancel();
-    _chunkTimer?.cancel();
-    _audioCache.clear();
+    _rollingCache.clear();
     super.dispose();
   }
 }

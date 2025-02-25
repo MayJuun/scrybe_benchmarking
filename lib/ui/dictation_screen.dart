@@ -109,9 +109,10 @@ class _DictationScreenState extends ConsumerState<DictationScreen> {
                       ? 'Stop'
                       : 'Start',
                 ),
-                onPressed: () {
+                onPressed: () async {
                   final notifier =
                       ref.read(dictationProvider(selectedModel).notifier);
+                  
                   if (dictationState?.status == DictationStatus.recording) {
                     notifier.stopDictation();
                   } else {
