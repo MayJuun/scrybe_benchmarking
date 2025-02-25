@@ -6,14 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 
-/// Uses a [ModelBase] (either [OnlineModel] or [OfflineModel]) to process audio
-/// from test WAV files, simulating real-life dictation (online) or doing batch
-/// decoding (offline).
+/// Uses an [OfflineModel] to process audio from test WAV files, simulating
+/// real-life dictation (online) or doing batch decoding (offline).
 class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   final Ref ref;
 
   // sherpa_onnx objects
-  final ModelBase _model;
+  final OfflineModel _model;
   late final TranscriptionCombiner _transcriptionCombiner =
       TranscriptionCombiner(config: TranscriptionConfig());
   late final VoiceActivityDetector _vad;
@@ -33,7 +32,7 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
 
   DictationBenchmarkNotifier({
     required this.ref,
-    required ModelBase model,
+    required OfflineModel model,
     this.sampleRate = 16000,
     required TestFiles testFiles,
   })  : _testFiles = testFiles,
@@ -42,7 +41,7 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     _rollingCache = RollingCache(
       sampleRate: sampleRate,
       bitDepth: 2,
-      durationSeconds: model is OfflineModel ? (model).cacheSize : 10,
+      durationSeconds: model.cacheSize,
     );
   }
 
@@ -82,17 +81,6 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
       await recorder.initialize(sampleRate: sampleRate);
       await recorder.startRecorder();
 
-      // If this is an online model, create a new stream
-      if (_model is OnlineModel) {
-        if (!(_model).createStream()) {
-          state = state.copyWith(
-            status: DictationStatus.error,
-            errorMessage: 'Failed to create online stream',
-          );
-          return;
-        }
-      }
-
       // Start streaming from our mock recorder
       // We supply `_onAudioData` for chunk callbacks, plus `_onFileComplete`
       await recorder.startStreaming(
@@ -130,30 +118,8 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
         final segment = _vad.front();
         final samples = segment.samples;
         _rollingCache.addSegment(samples);
-
-        // Only proceed if we are using an offline model.
-        if (_model is OfflineModel) {
-          final recognizer = _model.recognizer;
-         // Use the recognizer inside the offline model.
-          final asrStream = recognizer.createStream();
-          asrStream.acceptWaveform(samples: samples, sampleRate: sampleRate);
-          recognizer.decode(asrStream);
-          final result = recognizer.getResult(asrStream);
-          asrStream.free();
-
-          // Merge this segment's transcript with the existing full transcript.
-          final combinedText = _transcriptionCombiner.combineTranscripts(
-            state.fullTranscript,
-            result.text,
-          );
-          state = state.copyWith(
-            currentChunkText: result.text,
-            fullTranscript: combinedText,
-          );
-        }
-
-        // Remove the processed segment from the VAD buffer.
         _vad.pop();
+        _processCache();
       }
     } catch (e) {
       print('Error processing audio data chunk with VAD: $e');
@@ -162,8 +128,7 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
 
   /// Only for offline: process the RollingCache audio (e.g., every 1s).
   /// We decode the entire cache, then combine transcripts.
-  void _processChunk() {
-    if (_model is! OfflineModel) return;
+  void _processCache() {
     if (_rollingCache.isEmpty) return;
 
     try {
@@ -201,69 +166,14 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
   }
 
   Future<void> _onFileComplete() async {
-    // Flush the VAD to force it to output any pending speech segments.
-    _vad.flush();
-
-    // Process any remaining segments from the VAD.
-    while (!_vad.isEmpty()) {
-      final segment = _vad.front();
-      final samples = segment.samples;
-      final startTime = segment.start.toDouble() / sampleRate;
-      final endTime = startTime + samples.length.toDouble() / sampleRate;
-
-      // Use the recognizer from the OfflineModel to process this segment.
-      if (_model is OfflineModel) {
-        final offlineModel = _model;
-        final asrStream = offlineModel.recognizer.createStream();
-        asrStream.acceptWaveform(samples: samples, sampleRate: sampleRate);
-        offlineModel.recognizer.decode(asrStream);
-        final result = offlineModel.recognizer.getResult(asrStream);
-        asrStream.free();
-
-        print('Final VAD segment [$startTime - $endTime]: ${result.text}');
-
-        final updatedTranscript = _transcriptionCombiner.combineTranscripts(
-          state.fullTranscript,
-          result.text,
-        );
-        state = state.copyWith(fullTranscript: updatedTranscript);
-      } else {
-        // If model is not OfflineModel, you may handle it differently.
-        print('Model is not offline; skipping VAD segment processing.');
-      }
-
-      _vad.pop();
-    }
-
-    // Now process any remaining audio in the rolling cache (for offline models).
-    if (_model is OfflineModel && _rollingCache.isNotEmpty) {
-      final remainingAudio = _rollingCache.getData();
-      if (remainingAudio.length >= sampleRate * 2) {
-        // At least 1 second.
-        print(
-            'Final processing on remaining cache: ${remainingAudio.length} bytes');
-        _processingStopwatch = Stopwatch()..start();
-        final finalTranscription =
-            _model.processAudio(remainingAudio, sampleRate);
-        _processingStopwatch?.stop();
-        _accumulatedProcessingTime +=
-            _processingStopwatch?.elapsed ?? Duration.zero;
-        final updatedTranscript = _transcriptionCombiner.combineTranscripts(
-          state.fullTranscript,
-          finalTranscription,
-        );
-        state = state.copyWith(fullTranscript: updatedTranscript);
-        print('Updated final transcript (offline): "${state.fullTranscript}"');
-      } else {
-        print('Remaining audio cache too small to process.');
-      }
-    }
+    // Stop the current dictation session (stop recorder, clear cache, etc.).
+    await stopDictation();
 
     // Collect metrics for this file.
     final currentFile = _testFiles.currentFile;
     final metrics = BenchmarkMetrics.create(
       modelName: _model.modelName,
-      modelType: _model is OnlineModel ? 'online' : 'offline',
+      modelType: 'offline',
       wavFile: currentFile,
       transcription: state.fullTranscript,
       reference: _testFiles.currentReferenceTranscript ?? '',
@@ -272,9 +182,6 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     );
     print('Creating metrics with transcript: ${state.fullTranscript}');
     _allMetrics.add(metrics);
-
-    // Stop the current dictation session (stop recorder, clear cache, etc.).
-    await stopDictation();
 
     // Reset timing.
     _accumulatedProcessingTime = Duration.zero;
@@ -300,31 +207,22 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
     if (state.status != DictationStatus.recording) return;
 
     try {
-      // For offline, process anything left in the cache
-      if (_model is OfflineModel && _rollingCache.isNotEmpty) {
-        _processChunk();
-      }
-
-      // For online, finalize the last chunk of decoding
-      if (_model is OnlineModel) {
-        final finalText = (_model).finalizeAndGetResult();
-        if (finalText.isNotEmpty) {
-          // Append to full transcript in case we missed leftover partial
-          final oldTranscript = state.fullTranscript;
-          final newTranscript =
-              oldTranscript.isEmpty ? finalText : '$oldTranscript $finalText';
-
-          // print('Final text: $finalText');
-
-          state = state.copyWith(fullTranscript: newTranscript);
-        }
-      }
-
       // Stop the recorder entirely
       final recorder = ref.read(mockRecorderProvider.notifier);
       await recorder.stopStreaming();
-      await recorder.stopRecorder();
+      // Flush the VAD to force it to output any pending speech segments.
+      _vad.flush();
 
+      // Process any remaining segments from the VAD.
+      while (!_vad.isEmpty()) {
+        final segment = _vad.front();
+        final samples = segment.samples;
+        _rollingCache.addSegment(samples);
+        _vad.pop();
+        _processCache();
+      }
+
+      await recorder.stopRecorder();
       // Clear any leftover
       _rollingCache.clear();
 
@@ -347,7 +245,7 @@ class DictationBenchmarkNotifier extends StateNotifier<DictationState> {
 }
 
 final dictationBenchmarkProvider = StateNotifierProvider.family<
-    DictationBenchmarkNotifier, DictationState, ModelBase>(
+    DictationBenchmarkNotifier, DictationState, OfflineModel>(
   (ref, model) {
     // Inject the dependency via a callback.
     final testFiles = TestFiles(

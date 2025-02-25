@@ -4,15 +4,14 @@ import 'dart:typed_data';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 
-class OfflineModel extends ModelBase {
+class OfflineModel {
   final OfflineRecognizer recognizer;
   final int cacheSize;
+  final String modelName;
 
   OfflineModel({required OfflineRecognizerConfig config, this.cacheSize = 10})
       : recognizer = OfflineRecognizer(config),
-        super(
-            modelName:
-                (config.model.tokens.split('/')..removeLast()).removeLast());
+        modelName = (config.model.tokens.split('/')..removeLast()).removeLast();
 
   /// Returns a pretty printed JSON string.
   final JsonEncoder jsonEncoder = JsonEncoder.withIndent('    ');
@@ -20,7 +19,6 @@ class OfflineModel extends ModelBase {
   /// Returns a pretty printed JSON string.
   String prettyPrintJson(Map<String, dynamic> map) => jsonEncoder.convert(map);
 
-  @override
   String processAudio(Uint8List audioData, int sampleRate) {
     // print('Processing audio data ${audioData.length} bytes');
     final stream = recognizer.createStream();
@@ -42,7 +40,6 @@ class OfflineModel extends ModelBase {
     return result.text;
   }
 
-  @override
   void dispose() {
     recognizer.free();
   }

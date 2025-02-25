@@ -5,7 +5,7 @@ import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 // A simple immutable state class for the model loading
 class LoadModelsState {
   final bool isLoading;
-  final List<ModelBase> models;
+  final List<OfflineModel> models;
 
   const LoadModelsState({
     this.isLoading = true,
@@ -14,7 +14,7 @@ class LoadModelsState {
 
   LoadModelsState copyWith({
     bool? isLoading,
-    List<ModelBase>? models,
+    List<OfflineModel>? models,
   }) {
     return LoadModelsState(
       isLoading: isLoading ?? this.isLoading,
@@ -34,12 +34,11 @@ class LoadModelsNotifier extends Notifier<LoadModelsState> {
 
   Future<void> _initModels() async {
     try {
-      final onlineConfigs = await loadOnlineModels();
       final offlineConfigs = await loadOfflineModels();
 
       state = state.copyWith(
         isLoading: false,
-        models: [...onlineConfigs, ...offlineConfigs],
+        models: offlineConfigs,
       );
     } catch (e) {
       debugPrint('Error loading models: $e');

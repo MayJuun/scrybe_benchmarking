@@ -9,7 +9,7 @@ import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 // has a button to start or stop the entire benchmark across models.
 
 class DictationBenchmarkScreen extends ConsumerStatefulWidget {
-  final List<ModelBase> models;
+  final List<OfflineModel> models;
 
   const DictationBenchmarkScreen({
     super.key,

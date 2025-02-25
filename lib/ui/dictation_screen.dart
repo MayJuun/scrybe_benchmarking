@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
 // Provider to hold the currently selected model
-final selectedModelProvider = StateProvider<ModelBase?>((ref) => null);
+final selectedModelProvider = StateProvider<OfflineModel?>((ref) => null);
 
 class DictationScreen extends ConsumerStatefulWidget {
-  final List<ModelBase> models;
+  final List<OfflineModel> models;
 
   const DictationScreen({super.key, required this.models});
 
@@ -33,7 +33,7 @@ class _DictationScreenState extends ConsumerState<DictationScreen> {
   Widget build(BuildContext context) {
     final selectedModel = ref.watch(selectedModelProvider);
     final dictationState =
-        selectedModel != null && selectedModel is OfflineModel
+        selectedModel != null
             ? ref.watch(dictationProvider(selectedModel))
             : null;
 
@@ -83,7 +83,7 @@ class _DictationScreenState extends ConsumerState<DictationScreen> {
               onChanged: (selected) {
                 if (selected != null) {
                   // Stop current dictation if any
-                  if (selectedModel != null && selectedModel is OfflineModel) {
+                  if (selectedModel != null) {
                     ref
                         .read(dictationProvider(selectedModel).notifier)
                         .stopDictation();
@@ -110,16 +110,14 @@ class _DictationScreenState extends ConsumerState<DictationScreen> {
                       : 'Start',
                 ),
                 onPressed: () {
-                  if (selectedModel is OfflineModel) {
-                    final notifier =
-                        ref.read(dictationProvider(selectedModel).notifier);
-                    if (dictationState?.status == DictationStatus.recording) {
-                      notifier.stopDictation();
-                    } else {
-                      notifier.startDictation();
-                    }
+                  final notifier =
+                      ref.read(dictationProvider(selectedModel).notifier);
+                  if (dictationState?.status == DictationStatus.recording) {
+                    notifier.stopDictation();
+                  } else {
+                    notifier.startDictation();
                   }
-                },
+                                },
               ),
             ],
 

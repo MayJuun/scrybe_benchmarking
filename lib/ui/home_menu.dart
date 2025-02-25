@@ -38,12 +38,12 @@ class HomeMenuScreen extends ConsumerWidget {
               // Live Dictation
               ElevatedButton(
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          DictationScreen(models: modelState.models),
-                    ),
-                  );
+                  // Navigator.of(context).push(
+                  //   MaterialPageRoute(
+                  //     builder: (_) =>
+                  //         DictationScreen(models: modelState.models),
+                  //   ),
+                  // );
                 },
                 child: const Text('Live Dictation'),
               ),
