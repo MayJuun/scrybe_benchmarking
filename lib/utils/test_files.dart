@@ -12,9 +12,9 @@ class TestFiles {
 
   /// A callback that returns a Future<int> for the file duration,
   /// given a wavFile path and sampleRate.
-  final Future<int> Function(String wavFile, int sampleRate) getFileDuration;
+  final Future<int> Function(String wavFile, int sampleRate)? getFileDuration;
 
-  TestFiles({required this.getFileDuration});
+  TestFiles({this.getFileDuration});
 
   /// Load test WAV + SRT transcripts from assets
   Future<void> loadTestFiles({int sampleRate = 16000}) async {
@@ -43,7 +43,9 @@ class TestFiles {
         }
 
         // Use the provided callback to get the duration.
-        _fileDurations[wavFile] = await getFileDuration(wavFile, sampleRate);
+        if (getFileDuration != null) {
+          _fileDurations[wavFile] = await getFileDuration!(wavFile, sampleRate);
+        }
       }
 
       currentFileIndex = 0;

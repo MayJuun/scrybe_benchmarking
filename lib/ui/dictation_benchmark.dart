@@ -9,7 +9,7 @@ import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 // has a button to start or stop the entire benchmark across models.
 
 class DictationBenchmarkScreen extends ConsumerStatefulWidget {
-  final List<OfflineModel> models;
+  final List<AsrModel> models;
 
   const DictationBenchmarkScreen({
     super.key,
@@ -107,8 +107,8 @@ class _DictationBenchmarkScreenState
 
                   final notifier =
                       ref.read(dictationBenchmarkProvider(model).notifier);
-                  
-                  await notifier.init();
+
+                  await notifier.prepareForBenchmark();
 
                   // Start the dictation on the current model
                   await notifier.startDictation();
@@ -121,7 +121,7 @@ class _DictationBenchmarkScreenState
                 // After all models are done, generate a consolidated report
                 final outputDir =
                     Directory(p.join(directory.path, 'dictation_test'));
-                if(!outputDir.existsSync()) {
+                if (!outputDir.existsSync()) {
                   outputDir.createSync();
                 }
                 final reportGenerator = BenchmarkReportGenerator(

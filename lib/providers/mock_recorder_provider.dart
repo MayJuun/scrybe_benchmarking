@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
-class MockRecorderNotifier extends StateNotifier<RecorderState> {
+class MockRecorderNotifier extends RecorderNotifier {
   String? _audioFilePath;
   Uint8List? _audioData;
   Timer? _audioTimer;
@@ -15,7 +15,7 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
       const Duration(milliseconds: 30); // Standard frame size
   int? _durationMs;
 
-  MockRecorderNotifier() : super(const RecorderState());
+  MockRecorderNotifier();
 
   Future<void> setAudioFile(String path, {int sampleRate = 16000}) async {
     // Cancel any ongoing operations
@@ -29,6 +29,7 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
     state = const RecorderState();
   }
 
+  @override
   Future<void> initialize({int sampleRate = 16000}) async {
     if (_audioFilePath == null) {
       state = state.copyWith(
@@ -49,6 +50,7 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
     }
   }
 
+  @override
   Future<void> startRecorder() async {
     if (!state.isInitialized || _audioData == null) {
       state = state.copyWith(
@@ -68,6 +70,7 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
     }
   }
 
+  @override
   Future<void> startStreaming(
     void Function(Uint8List) onAudioData, {
     void Function()? onComplete,
@@ -124,6 +127,7 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
     }
   }
 
+  @override
   Future<void> stopStreaming() async {
     if (!state.isStreaming) return;
 
@@ -140,6 +144,7 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
     }
   }
 
+  @override
   Future<void> stopRecorder() async {
     if (!state.isStarted) return;
 
@@ -157,6 +162,7 @@ class MockRecorderNotifier extends StateNotifier<RecorderState> {
     }
   }
 
+  @override
   Stream<Uint8List> get audioStream =>
       _audioController?.stream ?? const Stream.empty();
 

@@ -4,14 +4,15 @@ import 'dart:typed_data';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 
-class OfflineModel {
+class OfflineModel extends AsrModel {
   final OfflineRecognizer recognizer;
   final int cacheSize;
-  final String modelName;
 
   OfflineModel({required OfflineRecognizerConfig config, this.cacheSize = 10})
       : recognizer = OfflineRecognizer(config),
-        modelName = (config.model.tokens.split('/')..removeLast()).removeLast();
+        super(
+            modelName:
+                (config.model.tokens.split('/')..removeLast()).removeLast());
 
   /// Returns a pretty printed JSON string.
   final JsonEncoder jsonEncoder = JsonEncoder.withIndent('    ');
@@ -40,6 +41,7 @@ class OfflineModel {
     return result.text;
   }
 
+  @override
   void dispose() {
     recognizer.free();
   }

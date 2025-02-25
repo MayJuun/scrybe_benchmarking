@@ -19,8 +19,8 @@ Future<VoiceActivityDetector> loadSileroVad() async {
 }
 
 /// Loads all available offline models (except punctuation).
-Future<List<OfflineModel>> loadOfflineModels() async {
-  final models = <OfflineModel>[];
+Future<List<AsrModel>> loadModels() async {
+  final models = <AsrModel>[];
 
   // Moonshine model (sherpa-onnx-moonshine-base-en-int8)
   try {
@@ -54,27 +54,21 @@ Future<List<OfflineModel>> loadOfflineModels() async {
     print('Failed to load Nemo fast conformer transducer model: $e');
   }
 
-  // Nemo Conformer CTC Large (sherpa-onnx-nemo-ctc-en-conformer-large)
-  // try {
-  //   models.add(await OfflineModel.createNemoCtc(
-  //     modelName: 'sherpa-onnx-nemo-ctc-en-conformer-large',
-  //     model: 'model.int8.onnx',
-  //     tokens: 'tokens.txt',
-  //   ));
-  // } catch (e) {
-  //   print('Failed to load NeMo CTC large model: $e');
-  // }
-
-  // Nemo Conformer CTC Small (sherpa-onnx-nemo-ctc-en-conformer-small)
-  // try {
-  //   models.add(await OfflineModel.createNemoCtc(
-  //     modelName: 'sherpa-onnx-nemo-ctc-en-conformer-small',
-  //     model: 'model.int8.onnx',
-  //     tokens: 'tokens.txt',
-  //   ));
-  // } catch (e) {
-  //   print('Failed to load NeMo CTC small model: $e');
-  // }
+  // Nemo Streaming Fast Conformer Transducer (1040ms)
+  try {
+    models.add(await OnlineModel.createTransducer(
+      modelName:
+          'sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms',
+      encoder: 'encoder.onnx',
+      decoder: 'decoder.onnx',
+      joiner: 'joiner.onnx',
+      tokens: 'tokens.txt',
+      modelType: 'conformer',
+    ));
+  } catch (e) {
+    print(
+        'Failed to load Nemo streaming fast conformer transducer (1040ms) model: $e');
+  }
 
   // Whisper Medium (sherpa-onnx-whisper-medium.en.int8)
   // try {
@@ -98,34 +92,6 @@ Future<List<OfflineModel>> loadOfflineModels() async {
   //   ));
   // } catch (e) {
   //   print('Failed to load Whisper small model: $e');
-  // }
-
-  // Zipformer Large (sherpa-onnx-zipformer-large-en-2023-06-26)
-  // try {
-  //   models.add(await OfflineModel.createTransducer(
-  //     modelName: 'sherpa-onnx-zipformer-large-en-2023-06-26',
-  //     encoder: 'encoder-epoch-99-avg-1.int8.onnx',
-  //     decoder: 'decoder-epoch-99-avg-1.int8.onnx',
-  //     joiner: 'joiner-epoch-99-avg-1.int8.onnx',
-  //     tokens: 'tokens.txt',
-  //     modelType: 'transducer',
-  //   ));
-  // } catch (e) {
-  //   print('Failed to load Zipformer large model: $e');
-  // }
-
-  // Zipformer Small (sherpa-onnx-zipformer-small-en-2023-06-26)
-  // try {
-  //   models.add(await OfflineModel.createTransducer(
-  //     modelName: 'sherpa-onnx-zipformer-small-en-2023-06-26',
-  //     encoder: 'encoder-epoch-99-avg-1.int8.onnx',
-  //     decoder: 'decoder-epoch-99-avg-1.int8.onnx',
-  //     joiner: 'joiner-epoch-99-avg-1.int8.onnx',
-  //     tokens: 'tokens.txt',
-  //     modelType: 'transducer',
-  //   ));
-  // } catch (e) {
-  //   print('Failed to load Zipformer small model: $e');
   // }
 
   return models;

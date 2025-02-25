@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
 // Provider to hold the currently selected model
-final selectedModelProvider = StateProvider<OfflineModel?>((ref) => null);
+final selectedModelProvider = StateProvider<AsrModel?>((ref) => null);
 
 class DictationScreen extends ConsumerStatefulWidget {
-  final List<OfflineModel> models;
+  final List<AsrModel> models;
 
   const DictationScreen({super.key, required this.models});
 
