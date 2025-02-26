@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
@@ -62,7 +61,9 @@ class TranscriptionBenchmarkNotifier
 
     final testPaths =
         curatedDir.listSync(recursive: true).map((e) => e.path).toList();
+    print('testPaths.length = ${testPaths.length}');
     final wavs = testPaths.where((p) => p.endsWith('.wav')).toList();
+    print('wavs = ${wavs}');
 
     state = state.copyWith(testFiles: wavs);
   }
@@ -71,7 +72,7 @@ class TranscriptionBenchmarkNotifier
   // Main method: runTranscriptionBenchmark (offline)
   // --------------------------------------------------------------------------
   Future<void> runTranscriptionBenchmark({
-    required List<OfflineRecognizerConfig> offlineConfigs,
+    required List<OfflineModel> offlineModels,
   }) async {
     // Reset
     state = state.copyWith(
@@ -82,10 +83,11 @@ class TranscriptionBenchmarkNotifier
 
     final allMetrics = <BenchmarkMetrics>[];
     final totalFiles = state.testFiles.length;
+    print(state.testFiles);
 
     try {
-      for (final cfg in offlineConfigs) {
-        final offlineRecognizer = OfflineRecognizer(cfg);
+      for (final model in offlineModels) {
+        final offlineRecognizer = model.recognizer;
 
         for (int i = 0; i < totalFiles; i++) {
           final wavPath = state.testFiles[i];
@@ -101,7 +103,7 @@ class TranscriptionBenchmarkNotifier
           final metrics = await _transcribeFileOffline(
             wavPath: wavPath,
             offlineRecognizer: offlineRecognizer,
-            modelName: '',
+            modelName: model.modelName,
           );
           allMetrics.add(metrics);
 
@@ -156,7 +158,7 @@ class TranscriptionBenchmarkNotifier
     final stream = offlineRecognizer.createStream();
 
     // Convert wave data to Float32List
-    final wavData = await rootBundle.load(wavPath);
+    final wavData = await File(wavPath).readAsBytes();
     final allBytes = wavData.buffer.asUint8List();
 
     Uint8List pcmBytes;
@@ -179,6 +181,7 @@ class TranscriptionBenchmarkNotifier
     // Get recognized text
     final result = offlineRecognizer.getResult(stream);
     final recognizedText = result.text.trim();
+    print('Recognized text for $wavPath: "$recognizedText"');
 
     final endTime = DateTime.now();
     final durationMs = endTime.difference(startTime).inMilliseconds;
@@ -242,7 +245,7 @@ class TranscriptionBenchmarkNotifier
   Future<String> _loadSrtTranscript(String wavPath) async {
     final srtPath = wavPath.replaceAll('.wav', '.srt');
     try {
-      final content = await rootBundle.loadString(srtPath);
+      final content = await File(srtPath).readAsString();
       return _stripSrt(content);
     } catch (_) {
       return '';

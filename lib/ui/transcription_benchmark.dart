@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
-import 'package:sherpa_onnx/sherpa_onnx.dart';
 import 'package:path/path.dart' as p;
 
 /// This screen decodes entire `.wav` files at once (no chunking).
 class TranscriptionBenchmarkScreen extends ConsumerStatefulWidget {
-  final List<OfflineRecognizerConfig> offlineConfigs;
+  final List<OfflineModel> offlineModels;
 
   const TranscriptionBenchmarkScreen({
     super.key,
-    required this.offlineConfigs,
+    required this.offlineModels,
   });
 
   @override
@@ -45,7 +44,6 @@ class _TranscriptionBenchmarkScreenState
           children: [
             Text('Found $fileCount test files'),
             const SizedBox(height: 16),
-
             if (isRunning) ...[
               Text('Current file: ${state.currentFile}'),
               LinearProgressIndicator(value: state.progress),
@@ -57,7 +55,7 @@ class _TranscriptionBenchmarkScreenState
                     ? null
                     : () {
                         notifier.runTranscriptionBenchmark(
-                          offlineConfigs: widget.offlineConfigs,
+                          offlineModels: widget.offlineModels,
                         );
                       },
                 child: const Text('Start Benchmark'),
@@ -118,7 +116,8 @@ class _TranscriptionResultsList extends StatelessWidget {
                     Text('Recognized: ${metric.transcription}'),
                     Text('Duration: ${metric.durationMs} ms'),
                     Text('RTF: ${metric.rtf.toStringAsFixed(2)}'),
-                    Text('WER: ${(metric.werStats.wer * 100).toStringAsFixed(2)}%'),
+                    Text(
+                        'WER: ${(metric.werStats.wer * 100).toStringAsFixed(2)}%'),
                   ],
                 ),
               ),

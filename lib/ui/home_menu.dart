@@ -75,7 +75,9 @@ class HomeMenuScreen extends ConsumerWidget {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => TranscriptionBenchmarkScreen(
-                          offlineConfigs: [],
+                          offlineModels: modelState.models
+                              .whereType<OfflineModel>()
+                              .toList(),
                         ),
                       ),
                     );
