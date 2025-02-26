@@ -24,7 +24,7 @@ Future<List<AsrModel>> loadModels() async {
 
   // Moonshine model (sherpa-onnx-moonshine-base-en-int8)
   try {
-    models.add(await OfflineModel.createMoonshine(
+    models.add(await OfflineRecognizerModel.createMoonshine(
       modelName: 'sherpa-onnx-moonshine-base-en-int8',
       preprocessor: 'preprocess.onnx',
       encoder: 'encode.int8.onnx',
@@ -39,7 +39,7 @@ Future<List<AsrModel>> loadModels() async {
 
   // Nemo Fast Conformer Transducer (sherpa-onnx-nemo-fast-conformer-transducer-en-24500)
   try {
-    models.add(await OfflineModel.createTransducer(
+    models.add(await OfflineRecognizerModel.createTransducer(
       modelName: 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500',
       encoder: 'encoder.onnx',
       decoder: 'decoder.onnx',
@@ -56,7 +56,7 @@ Future<List<AsrModel>> loadModels() async {
 
   // Nemo Streaming Fast Conformer Transducer (1040ms)
   try {
-    models.add(await OnlineModel.createTransducer(
+    models.add(await OnlineRecognizerModel.createTransducer(
       modelName:
           'sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms',
       encoder: 'encoder.onnx',
@@ -72,7 +72,7 @@ Future<List<AsrModel>> loadModels() async {
 
   // Whisper Medium (sherpa-onnx-whisper-medium.en.int8)
   // try {
-  //   models.add(await OfflineModel.createWhisper(
+  //   models.add(await OfflineRecognizerModel.createWhisper(
   //     modelName: 'sherpa-onnx-whisper-medium.en.int8',
   //     encoder: 'medium.en-encoder.int8.onnx',
   //     decoder: 'medium.en-decoder.int8.onnx',
@@ -83,16 +83,32 @@ Future<List<AsrModel>> loadModels() async {
   // }
 
   // Whisper Small (sherpa-onnx-whisper-small.en.int8)
-  // try {
-  //   models.add(await OfflineModel.createWhisper(
-  //     modelName: 'sherpa-onnx-whisper-small.en.int8',
-  //     encoder: 'small.en-encoder.int8.onnx',
-  //     decoder: 'small.en-decoder.int8.onnx',
-  //     tokens: 'small.en-tokens.txt',
-  //   ));
-  // } catch (e) {
-  //   print('Failed to load Whisper small model: $e');
-  // }
+  try {
+    models.add(await OfflineRecognizerModel.createWhisper(
+      modelName: 'sherpa-onnx-whisper-small.en.int8',
+      encoder: 'small.en-encoder.int8.onnx',
+      decoder: 'small.en-decoder.int8.onnx',
+      tokens: 'small.en-tokens.txt',
+    ));
+  } catch (e) {
+    print('Failed to load Whisper small model: $e');
+  }
+
+  // sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01
+  try {
+    models.add(await KeywordSpotterModel.createTransducer(
+      modelName: 'sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01',
+      encoder: 'encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx',
+      decoder: 'decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx',
+      joiner: 'joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx',
+      tokens: 'tokens.txt',
+      bpeVocab: 'bpe.model',
+      keywordsFile: 'keywords.txt',
+    ));
+  } catch (e) {
+    print(
+        'Failed to load Nemo streaming fast conformer transducer (1040ms) model: $e');
+  }
 
   return models;
 }

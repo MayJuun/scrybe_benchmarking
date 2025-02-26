@@ -185,3 +185,11 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 | sherpa-onnx-moonshine-base-en-int8 | offline | 21.19 | 0.039 | 750 |
 | sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | offline | 16.83 | 0.030 | 564 |
 | sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | offline | 26.82 | 0.000 | 0 |
+
+
+## Run 9 (offline)
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-moonshine-base-en-int8 | offline | 12.48 | 0.061 | 1227 |
+| sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | offline | 16.31 | 0.031 | 609 |
+| sherpa-onnx-whisper-small.en.int8 | offline | 10.10 | 0.438 | 8539 |

@@ -4,11 +4,12 @@ import 'dart:typed_data';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 
-class OfflineModel extends AsrModel {
+class OfflineRecognizerModel extends AsrModel {
   final OfflineRecognizer recognizer;
   final int cacheSize;
 
-  OfflineModel({required OfflineRecognizerConfig config, this.cacheSize = 10})
+  OfflineRecognizerModel(
+      {required OfflineRecognizerConfig config, this.cacheSize = 10})
       : recognizer = OfflineRecognizer(config),
         super(
             modelName:
@@ -47,7 +48,7 @@ class OfflineModel extends AsrModel {
   }
 
   /// Creates configuration for offline Moonshine models.
-  static Future<OfflineModel> createMoonshine({
+  static Future<OfflineRecognizerModel> createMoonshine({
     required String modelName,
     required String preprocessor,
     required String encoder,
@@ -79,7 +80,7 @@ class OfflineModel extends AsrModel {
     double blankPenalty = 0.0,
     int? cacheSize,
   }) async {
-    return OfflineModel(
+    return OfflineRecognizerModel(
       config: OfflineRecognizerConfig(
         model: OfflineModelConfig(
           moonshine: OfflineMoonshineModelConfig(
@@ -119,7 +120,7 @@ class OfflineModel extends AsrModel {
   }
 
   /// Creates configuration for offline Whisper models.
-  static Future<OfflineModel> createWhisper({
+  static Future<OfflineRecognizerModel> createWhisper({
     required String modelName,
     required String encoder,
     required String decoder,
@@ -153,7 +154,7 @@ class OfflineModel extends AsrModel {
     double blankPenalty = 0.0,
     int? cacheSize,
   }) async {
-    return OfflineModel(
+    return OfflineRecognizerModel(
       config: OfflineRecognizerConfig(
         model: OfflineModelConfig(
           whisper: OfflineWhisperModelConfig(
@@ -194,7 +195,7 @@ class OfflineModel extends AsrModel {
   }
 
   /// Creates configuration for offline Nemo CTC models.
-  static Future<OfflineModel> createNemoCtc({
+  static Future<OfflineRecognizerModel> createNemoCtc({
     required String modelName,
     required String model,
     required String tokens,
@@ -223,7 +224,7 @@ class OfflineModel extends AsrModel {
     double blankPenalty = 0.0,
     int? cacheSize,
   }) async {
-    return OfflineModel(
+    return OfflineRecognizerModel(
       config: OfflineRecognizerConfig(
         model: OfflineModelConfig(
           nemoCtc: OfflineNemoEncDecCtcModelConfig(
@@ -260,7 +261,7 @@ class OfflineModel extends AsrModel {
   }
 
   /// Creates configuration for SenseVoice models.
-  static Future<OfflineModel> createSenseVoice({
+  static Future<OfflineRecognizerModel> createSenseVoice({
     required String modelName,
     required String model,
     required String tokens,
@@ -292,7 +293,7 @@ class OfflineModel extends AsrModel {
     double blankPenalty = 0.0,
     int? cacheSize,
   }) async {
-    return OfflineModel(
+    return OfflineRecognizerModel(
       config: OfflineRecognizerConfig(
         model: OfflineModelConfig(
           senseVoice: OfflineSenseVoiceModelConfig(
@@ -331,7 +332,7 @@ class OfflineModel extends AsrModel {
   }
 
   /// Creates configuration for Paraformer models.
-  static Future<OfflineModel> createParaformer({
+  static Future<OfflineRecognizerModel> createParaformer({
     required String modelName,
     required String model,
     required String tokens,
@@ -360,7 +361,7 @@ class OfflineModel extends AsrModel {
     double blankPenalty = 0.0,
     int? cacheSize,
   }) async {
-    return OfflineModel(
+    return OfflineRecognizerModel(
       config: OfflineRecognizerConfig(
         model: OfflineModelConfig(
           paraformer: OfflineParaformerModelConfig(
@@ -404,7 +405,7 @@ class OfflineModel extends AsrModel {
   /// - [decoder]: Filename of the decoder model
   /// - [joiner]: Filename of the joiner model
   /// - [tokens]: Filename of the tokens file
-  static Future<OfflineModel> createTransducer({
+  static Future<OfflineRecognizerModel> createTransducer({
     required String modelName,
     required String encoder,
     required String decoder,
@@ -440,7 +441,7 @@ class OfflineModel extends AsrModel {
       modelingUnit = 'bpe'; // Set if bpeVocab provided
     }
 
-    return OfflineModel(
+    return OfflineRecognizerModel(
       config: OfflineRecognizerConfig(
         model: OfflineModelConfig(
           transducer: OfflineTransducerModelConfig(

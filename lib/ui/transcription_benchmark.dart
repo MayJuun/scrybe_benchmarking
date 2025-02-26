@@ -5,11 +5,11 @@ import 'package:path/path.dart' as p;
 
 /// This screen decodes entire `.wav` files at once (no chunking).
 class TranscriptionBenchmarkScreen extends ConsumerStatefulWidget {
-  final List<OfflineModel> offlineModels;
+  final List<OfflineRecognizerModel> offlineRecognizerModels;
 
   const TranscriptionBenchmarkScreen({
     super.key,
-    required this.offlineModels,
+    required this.offlineRecognizerModels,
   });
 
   @override
@@ -55,7 +55,8 @@ class _TranscriptionBenchmarkScreenState
                     ? null
                     : () {
                         notifier.runTranscriptionBenchmark(
-                          offlineModels: widget.offlineModels,
+                          offlineRecognizerModels:
+                              widget.offlineRecognizerModels,
                         );
                       },
                 child: const Text('Start Benchmark'),

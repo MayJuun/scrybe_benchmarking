@@ -72,7 +72,7 @@ class TranscriptionBenchmarkNotifier
   // Main method: runTranscriptionBenchmark (offline)
   // --------------------------------------------------------------------------
   Future<void> runTranscriptionBenchmark({
-    required List<OfflineModel> offlineModels,
+    required List<OfflineRecognizerModel> offlineRecognizerModels,
   }) async {
     // Reset
     state = state.copyWith(
@@ -86,7 +86,7 @@ class TranscriptionBenchmarkNotifier
     print(state.testFiles);
 
     try {
-      for (final model in offlineModels) {
+      for (final model in offlineRecognizerModels) {
         final offlineRecognizer = model.recognizer;
 
         for (int i = 0; i < totalFiles; i++) {

@@ -3,16 +3,17 @@ import 'dart:typed_data';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 
-class OnlineModel extends AsrModel {
+class OnlineRecognizerModel extends OnlineModel {
   final OnlineRecognizer recognizer;
   OnlineStream? _stream;
 
-  OnlineModel({required OnlineRecognizerConfig config})
+  OnlineRecognizerModel({required OnlineRecognizerConfig config})
       : recognizer = OnlineRecognizer(config),
         super(
             modelName:
                 (config.model.tokens.split('/')..removeLast()).removeLast());
 
+  @override
   String processAudio(Uint8List audioData, int sampleRate) {
     // Create a stream if we don't have one
     _stream ??= recognizer.createStream();
@@ -39,7 +40,8 @@ class OnlineModel extends AsrModel {
     return result.text;
   }
 
-  // In the OnlineModel class
+  @override
+  // In the OnlineRecognizerModel class
   void finalizeDecoding() {
     // For some models, there's a specific API for this
     if (_stream != null) {
@@ -68,7 +70,7 @@ class OnlineModel extends AsrModel {
   }
 
   /// Creates configuration for online transducer models.
-  static Future<OnlineModel> createTransducer({
+  static Future<OnlineRecognizerModel> createTransducer({
     required String modelName,
     required String encoder,
     required String decoder,
@@ -102,7 +104,7 @@ class OnlineModel extends AsrModel {
     String ctcFstDecoderGraph = '',
     int ctcFstDecoderMaxActive = 3000,
   }) async {
-    return OnlineModel(
+    return OnlineRecognizerModel(
       config: OnlineRecognizerConfig(
         model: OnlineModelConfig(
           transducer: OnlineTransducerModelConfig(

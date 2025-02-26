@@ -36,35 +36,11 @@ flutter:
     - assets/models/sherpa-onnx-moonshine-base-en-int8/tokens.txt
     - assets/models/sherpa-onnx-moonshine-base-en-int8/uncached_decode.int8.onnx
 
-    # sherpa-onnx-nemo-ctc-en-conformer-large (offline)
-    # - assets/models/sherpa-onnx-nemo-ctc-en-conformer-large/model.int8.onnx
-    # - assets/models/sherpa-onnx-nemo-ctc-en-conformer-large/tokens.txt
-
-    # sherpa-onnx-nemo-ctc-en-conformer-small (offline)
-    # - assets/models/sherpa-onnx-nemo-ctc-en-conformer-small/model.int8.onnx
-    # - assets/models/sherpa-onnx-nemo-ctc-en-conformer-small/tokens.txt
-
     # sherpa-onnx-nemo-fast-conformer-transducer-en-24500 (offline)
     - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/encoder.onnx
     - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/decoder.onnx
     - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/joiner.onnx
     - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/tokens.txt
-
-    # sherpa-onnx-nemo-streaming-fast-conformer-ctc-en-80ms (online)
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-ctc-en-80ms/model.onnx
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-ctc-en-80ms/tokens.txt
-
-    # sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-80ms (online)
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-80ms/encoder.onnx
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-80ms/decoder.onnx
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-80ms/joiner.onnx
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-80ms/tokens.txt
-
-    # sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-480ms (online)
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-480ms/encoder.onnx
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-480ms/decoder.onnx
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-480ms/joiner.onnx
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-480ms/tokens.txt
 
     # sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms (online)
     - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/encoder.onnx
@@ -72,39 +48,23 @@ flutter:
     - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/joiner.onnx
     - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/tokens.txt
 
-    # sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile.int8 (online)
-    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile.int8/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
-    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile.int8/decoder-epoch-99-avg-1-chunk-16-left-128.onnx
-    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile.int8/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx
-    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26-mobile.int8/tokens.txt
-
-    # sherpa-onnx-streaming-zipformer-en-2023-06-26.int8 (online)
-    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26.int8/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
-    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26.int8/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
-    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26.int8/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx
-    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26.int8/tokens.txt
-
     # sherpa-onnx-whisper-medium.en.int8 (offline)
     # - assets/models/sherpa-onnx-whisper-medium.en.int8/medium.en-decoder.int8.onnx
     # - assets/models/sherpa-onnx-whisper-medium.en.int8/medium.en-encoder.int8.onnx
     # - assets/models/sherpa-onnx-whisper-medium.en.int8/medium.en-tokens.txt
 
     # sherpa-onnx-whisper-small.en.int8 (offline)
-    # - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-decoder.int8.onnx
-    # - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-encoder.int8.onnx
-    # - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-tokens.txt
+    - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-decoder.int8.onnx
+    - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-encoder.int8.onnx
+    - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-tokens.txt
 
-    # sherpa-onnx-zipformer-large-en-2023-06-26 (offline)
-    # - assets/models/sherpa-onnx-zipformer-large-en-2023-06-26/decoder-epoch-99-avg-1.int8.onnx
-    # - assets/models/sherpa-onnx-zipformer-large-en-2023-06-26/encoder-epoch-99-avg-1.int8.onnx
-    # - assets/models/sherpa-onnx-zipformer-large-en-2023-06-26/joiner-epoch-99-avg-1.int8.onnx
-    # - assets/models/sherpa-onnx-zipformer-large-en-2023-06-26/tokens.txt
-
-    # sherpa-onnx-zipformer-small-en-2023-06-26 (offline)
-    # - assets/models/sherpa-onnx-zipformer-small-en-2023-06-26/decoder-epoch-99-avg-1.int8.onnx
-    # - assets/models/sherpa-onnx-zipformer-small-en-2023-06-26/encoder-epoch-99-avg-1.int8.onnx
-    # - assets/models/sherpa-onnx-zipformer-small-en-2023-06-26/joiner-epoch-99-avg-1.int8.onnx
-    # - assets/models/sherpa-onnx-zipformer-small-en-2023-06-26/tokens.txt
+    # sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01
+    - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx
+    - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx
+    - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx
+    - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/tokens.txt
+    - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/bpe.model
+    - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/keywords.txt
 
     # sherpa-onnx-online-punct-en-2024-08-06 (punctuation model)
     # - assets/models/sherpa-onnx-online-punct-en-2024-08-06/model.onnx

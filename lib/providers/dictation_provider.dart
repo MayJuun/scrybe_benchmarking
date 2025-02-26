@@ -215,7 +215,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
 
         _processingStopwatch = Stopwatch()..start();
       }
-      final transcriptionResult = _model is OfflineModel
+      final transcriptionResult = _model is OfflineRecognizerModel
           ? _model.processAudio(audioData, sampleRate)
           : '';
       if (isTest) {
@@ -280,7 +280,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
   }
 
   void _resetOnlineModel() {
-    if (_model is OnlineModel) {
+    if (_model is OnlineRecognizerModel) {
       _model.resetStream();
     }
   }
@@ -342,7 +342,16 @@ class DictationNotifier extends StateNotifier<DictationState> {
   void _updateTranscript(String newText) {
     if (newText.trim().isEmpty) return;
 
-    if (_model is OnlineModel) {
+    if (_model is KeywordSpotterModel) {
+      // For offline models, append as before
+      final combinedText = '${state.fullTranscript}\n$newText'.trim();
+
+      // For keyword spotter models, return the keyword only
+      state = state.copyWith(
+        currentChunkText: newText,
+        fullTranscript: combinedText.trim(),
+      );
+    } else if (_model is OnlineRecognizerModel) {
       // For online models, replace the transcript since they return the full text
       state = state.copyWith(
         currentChunkText: newText,
