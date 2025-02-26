@@ -178,3 +178,10 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 |-------|------|----------|---------|------------------|----|
 | sherpa-onnx-moonshine-base-en-int8 | offline | 36.30 | 0.326 | 6608 | 15 |
 | sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | offline | 38.17 | 0.191 | 3874 | 20 |
+
+## Run 8 (live streaming - hard audio)
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-moonshine-base-en-int8 | offline | 21.19 | 0.039 | 750 |
+| sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | offline | 16.83 | 0.030 | 564 |
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | offline | 26.82 | 0.000 | 0 |

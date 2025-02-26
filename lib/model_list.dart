@@ -22,37 +22,37 @@ Future<VoiceActivityDetector> loadSileroVad() async {
 Future<List<AsrModel>> loadModels() async {
   final models = <AsrModel>[];
 
-  // // Moonshine model (sherpa-onnx-moonshine-base-en-int8)
-  // try {
-  //   models.add(await OfflineModel.createMoonshine(
-  //     modelName: 'sherpa-onnx-moonshine-base-en-int8',
-  //     preprocessor: 'preprocess.onnx',
-  //     encoder: 'encode.int8.onnx',
-  //     uncachedDecoder: 'uncached_decode.int8.onnx',
-  //     cachedDecoder: 'cached_decode.int8.onnx',
-  //     tokens: 'tokens.txt',
-  //     cacheSize: 6,
-  //   ));
-  // } catch (e) {
-  //   print('Failed to load Moonshine model: $e');
-  // }
+  // Moonshine model (sherpa-onnx-moonshine-base-en-int8)
+  try {
+    models.add(await OfflineModel.createMoonshine(
+      modelName: 'sherpa-onnx-moonshine-base-en-int8',
+      preprocessor: 'preprocess.onnx',
+      encoder: 'encode.int8.onnx',
+      uncachedDecoder: 'uncached_decode.int8.onnx',
+      cachedDecoder: 'cached_decode.int8.onnx',
+      tokens: 'tokens.txt',
+      cacheSize: 6,
+    ));
+  } catch (e) {
+    print('Failed to load Moonshine model: $e');
+  }
 
-  // // Nemo Fast Conformer Transducer (sherpa-onnx-nemo-fast-conformer-transducer-en-24500)
-  // try {
-  //   models.add(await OfflineModel.createTransducer(
-  //     modelName: 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500',
-  //     encoder: 'encoder.onnx',
-  //     decoder: 'decoder.onnx',
-  //     joiner: 'joiner.onnx',
-  //     tokens: 'tokens.txt',
-  //     numThreads: 1,
-  //     modelType: 'nemo_transducer',
-  //     debug: true,
-  //     cacheSize: 6,
-  //   ));
-  // } catch (e) {
-  //   print('Failed to load Nemo fast conformer transducer model: $e');
-  // }
+  // Nemo Fast Conformer Transducer (sherpa-onnx-nemo-fast-conformer-transducer-en-24500)
+  try {
+    models.add(await OfflineModel.createTransducer(
+      modelName: 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500',
+      encoder: 'encoder.onnx',
+      decoder: 'decoder.onnx',
+      joiner: 'joiner.onnx',
+      tokens: 'tokens.txt',
+      numThreads: 1,
+      modelType: 'nemo_transducer',
+      debug: true,
+      cacheSize: 6,
+    ));
+  } catch (e) {
+    print('Failed to load Nemo fast conformer transducer model: $e');
+  }
 
   // Nemo Streaming Fast Conformer Transducer (1040ms)
   try {

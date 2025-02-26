@@ -88,7 +88,10 @@ class DictationNotifier extends StateNotifier<DictationState> {
   /// it processes all files in `_testFiles` in sequence.
   Future<void> startDictation() async {
     if (state.status == DictationStatus.recording) return;
-    _vad ??= await loadSileroVad();
+
+    if (_model is! OnlineModel) {
+      _vad ??= await loadSileroVad();
+    }
 
     if (isTest) {
       _processingCompleter ??= Completer<void>();
@@ -161,7 +164,17 @@ class DictationNotifier extends StateNotifier<DictationState> {
     if (state.status != DictationStatus.recording) return;
 
     try {
+      // For online models, process audio directly without VAD
+      if (_model is OnlineModel) {
+        final result = _model.processAudio(audioData, sampleRate);
+        _updateTranscript(result);
+        return; // Early return
+      }
+
+      // Below this point is only for offline models
       final Float32List floatAudio = convertBytesToFloat32(audioData);
+
+      // Use VAD for offline models if available
       if (_vad != null) {
         _vad!.acceptWaveform(floatAudio);
         while (!_vad!.isEmpty()) {
@@ -169,26 +182,18 @@ class DictationNotifier extends StateNotifier<DictationState> {
           final samples = segment.samples;
           final segmentAudio = convertFloat32ToBytes(samples);
 
-          // For online models, process directly here rather than accumulating
-          if (_model is OnlineModel) {
-            final result = _model.processAudio(segmentAudio, sampleRate);
-            _updateTranscript(result);
-          } else {
-            // For offline models, continue using the rolling cache
-            _rollingCache.addChunk(segmentAudio);
-            _processCache();
-          }
+          // Add to rolling cache and process
+          _rollingCache.addChunk(segmentAudio);
+          _processCache();
 
           _vad!.pop();
         }
-      } else if (_model is OnlineModel) {
-        final result = _model.processAudio(audioData, sampleRate);
-        _updateTranscript(result);
       } else {
+        // No VAD, just add to rolling cache
         _rollingCache.addChunk(audioData);
       }
     } catch (e) {
-      print('Error processing audio data chunk with VAD: $e');
+      print('Error processing audio data chunk: $e');
     }
   }
 
@@ -285,34 +290,26 @@ class DictationNotifier extends StateNotifier<DictationState> {
           : ref.read(recorderProvider.notifier);
       await recorder.stopStreaming();
 
-      _vad?.flush();
-      if (_vad != null) {
+      // For offline models with VAD
+      if (_model is! OnlineModel && _vad != null) {
+        _vad?.flush();
         while (!_vad!.isEmpty()) {
           final segment = _vad!.front();
           final samples = segment.samples;
           final audioData = convertFloat32ToBytes(samples);
 
-          // Handle differently based on model type
-          if (_model is OnlineModel) {
-            final result = _model.processAudio(audioData, sampleRate);
-            _updateTranscript(result);
-          } else {
-            _rollingCache.addChunk(audioData);
-          }
-
+          _rollingCache.addChunk(audioData);
           _vad!.pop();
         }
-      }
 
-      // For offline models, we need to process any remaining audio in the cache
-      if (_model is! OnlineModel) {
+        // Process any remaining audio in the cache
         _processCache();
-      } else {
-        // For online models, finalize any pending transcription
-        // This might involve sending a final chunk of silence or
-        // checking if the model has any pending text
+      }
+      // For online models
+      else if (_model is OnlineModel) {
+        // Finalize any pending transcription
         final onlineModel = _model;
-        // Optional: send a small silence buffer to finalize any pending transcription
+        // Send a small silence buffer to finalize pending transcription
         final silenceBuffer = Float32List(sampleRate ~/ 4); // ~250ms of silence
         final result = onlineModel.processAudio(
             convertFloat32ToBytes(silenceBuffer), sampleRate);
@@ -359,7 +356,9 @@ class DictationNotifier extends StateNotifier<DictationState> {
   @override
   void dispose() {
     _rollingCache.clear();
-    _vad?.free();
+    if (_vad != null) {
+      _vad?.free();
+    }
     super.dispose();
   }
 }
