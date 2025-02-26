@@ -86,7 +86,7 @@ class OnlineModel extends AsrModel {
     int sampleRate = 16000,
     int featureDim = 80,
     // Endpoint settings
-    bool enableEndpoint = true,
+    bool enableEndpoint = false,
     double rule1MinTrailingSilence = 2.4,
     double rule2MinTrailingSilence = 1.2,
     double rule3MinUtteranceLength = 20.0,
