@@ -89,9 +89,10 @@ class DictationNotifier extends StateNotifier<DictationState> {
   Future<void> startDictation() async {
     if (state.status == DictationStatus.recording) return;
 
-    if (_model is! OnlineModel) {
-      _vad ??= await loadSileroVad();
-    }
+    // VAD is disabled by commenting out the VAD initialization.
+    // if (_model is! OnlineModel) {
+    //   _vad ??= await loadSileroVad();
+    // }
 
     if (isTest) {
       _processingCompleter ??= Completer<void>();
@@ -120,8 +121,16 @@ class DictationNotifier extends StateNotifier<DictationState> {
           onComplete: _onFileComplete,
         );
         print('Processing file ${_testFiles.currentFileIndex + 1}'
-            '/${_testFiles.length}: '
-            '${_testFiles.currentFile}');
+            '/${_testFiles.length}: ${_testFiles.currentFile}');
+
+        // NEW: Set up a periodic timer in test mode for offline models when VAD is off.
+        if (_model is! OnlineModel && _vad == null) {
+          _processingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+            if (_rollingCache.isNotEmpty) {
+              _processCache();
+            }
+          });
+        }
       } else {
         final recorder = ref.read(recorderProvider.notifier);
         await recorder.initialize(sampleRate: sampleRate);
@@ -130,22 +139,18 @@ class DictationNotifier extends StateNotifier<DictationState> {
         // For streaming audio directly
         await recorder.startStreaming(_onAudioData);
 
-        // Only use the timer for offline models or for UI updates with online models
+        // Use a timer for offline models or UI updates with online models.
         if (_model is! OnlineModel) {
           _processingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-            // Only process if we have data and no VAD or VAD is not being used
             if (_rollingCache.isNotEmpty && _vad == null) {
               _processCache();
             }
           });
         } else {
           _resetOnlineModel();
-          // For online models, we might still want a timer for UI updates
-          // but at a much higher frequency
           _processingTimer =
               Timer.periodic(const Duration(milliseconds: 300), (_) {
-            // We could update UI here if needed, but audio processing
-            // is handled directly in _onAudioData
+            // UI update timer; actual audio processing is done in _onAudioData.
           });
         }
       }
