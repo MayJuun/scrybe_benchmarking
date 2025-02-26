@@ -136,6 +136,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
             }
           });
         } else {
+          _resetOnlineModel();
           // For online models, we might still want a timer for UI updates
           // but at a much higher frequency
           _processingTimer =
@@ -268,6 +269,12 @@ class DictationNotifier extends StateNotifier<DictationState> {
     }
   }
 
+  void _resetOnlineModel() {
+    if (_model is OnlineModel) {
+      _model.resetStream();
+    }
+  }
+
   Future<void> stopDictation() async {
     if (state.status != DictationStatus.recording) return;
 
@@ -312,6 +319,8 @@ class DictationNotifier extends StateNotifier<DictationState> {
         if (result.trim().isNotEmpty) {
           _updateTranscript(result);
         }
+        onlineModel.finalizeDecoding();
+        _resetOnlineModel();
       }
 
       await recorder.stopRecorder();

@@ -39,6 +39,21 @@ class OnlineModel extends AsrModel {
     return result.text;
   }
 
+  // In the OnlineModel class
+  void finalizeDecoding() {
+    // For some models, there's a specific API for this
+    if (_stream != null) {
+      // Add small silence to flush any buffered audio
+      final silenceBuffer = Float32List(1600); // 0.1 second at 16kHz
+      _stream!.acceptWaveform(samples: silenceBuffer, sampleRate: 16000);
+
+      // Force all decoding of buffered audio
+      while (recognizer.isReady(_stream!)) {
+        recognizer.decode(_stream!);
+      }
+    }
+  }
+
   void resetStream() {
     if (_stream != null) {
       _stream!.free();
