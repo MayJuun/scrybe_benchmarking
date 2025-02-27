@@ -94,6 +94,26 @@ class BenchmarkReportGenerator {
     }
     sb.writeln();
 
+    sb.writeln('## Error Analysis by Model');
+    sb.writeln();
+    sb.writeln('| Model | Avg WER% | Substitutions | Deletions | Insertions |');
+    sb.writeln('|-------|----------|--------------|-----------|------------|');
+
+    for (final model in models) {
+      final modelMetrics =
+          metricsList.where((m) => m.modelName == model).toList();
+      final avgWer = modelMetrics
+          .map((m) => m.werStats.wer * 100)
+          .average
+          .toStringAsFixed(2);
+      final totalSubs = modelMetrics.map((m) => m.werStats.substitutions).sum;
+      final totalDels = modelMetrics.map((m) => m.werStats.deletions).sum;
+      final totalIns = modelMetrics.map((m) => m.werStats.insertions).sum;
+
+      sb.writeln('| $model | $avgWer | $totalSubs | $totalDels | $totalIns |');
+    }
+    sb.writeln();
+
     // 2. Detailed Comparison Table
     sb.writeln('## Detailed Results by File');
     sb.writeln();

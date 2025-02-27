@@ -41,19 +41,26 @@ class OnlineRecognizerModel extends OnlineModel {
   }
 
   @override
-  // In the OnlineRecognizerModel class
   void finalizeDecoding() {
-    // For some models, there's a specific API for this
     if (_stream != null) {
-      // Add small silence to flush any buffered audio
-      final silenceBuffer = Float32List(1600); // 0.1 second at 16kHz
+      // Add more silence to flush any buffered audio (increase from 0.1s to 1s)
+      final silenceBuffer = Float32List(16000); // 1 second at 16kHz
       _stream!.acceptWaveform(samples: silenceBuffer, sampleRate: 16000);
 
       // Force all decoding of buffered audio
       while (recognizer.isReady(_stream!)) {
         recognizer.decode(_stream!);
       }
+
+      // Get any final results after adding silence
+      // We don't reset here to ensure we capture everything
     }
+  }
+
+  // Add a method to get final results
+  String getFinalResults() {
+    if (_stream == null) return "";
+    return recognizer.getResult(_stream!).text;
   }
 
   void resetStream() {

@@ -21,6 +21,7 @@ class OfflineRecognizerModel extends AsrModel {
   /// Returns a pretty printed JSON string.
   String prettyPrintJson(Map<String, dynamic> map) => jsonEncoder.convert(map);
 
+  @override
   String processAudio(Uint8List audioData, int sampleRate) {
     // print('Processing audio data ${audioData.length} bytes');
     final stream = recognizer.createStream();

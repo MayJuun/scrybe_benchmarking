@@ -3,10 +3,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sherpa_onnx/sherpa_onnx.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
-// First, update the enum
+// Updated enum remains the same.
 enum DictationStatus {
   idle,
   recording,
@@ -61,7 +60,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
   final int sampleRate;
   final RollingCache _rollingCache = RollingCache();
   Timer? _processingTimer;
-  VoiceActivityDetector? _vad;
+  // Removed VAD: VoiceActivityDetector? _vad;
 
   // Timing
   Stopwatch? _processingStopwatch;
@@ -71,6 +70,16 @@ class DictationNotifier extends StateNotifier<DictationState> {
   final TestFiles _testFiles;
   final List<BenchmarkMetrics> _allMetrics = [];
   Completer<void>? _processingCompleter;
+  final _transcriptionCombiner = TranscriptionCombiner(
+    config: TranscriptionConfig(
+      similarityThreshold: 0.75,
+      debug: true,
+      useFuzzyMatching: true,
+      maxLookbackNgrams: 0, // 0 = use smart limit instead
+      useSmartLimit: true, // Enable adaptive limiting
+      scanFullText: true, // Still scan full text for containment checks
+    ),
+  );
 
   bool isTest = false;
 
@@ -88,11 +97,6 @@ class DictationNotifier extends StateNotifier<DictationState> {
   /// it processes all files in `_testFiles` in sequence.
   Future<void> startDictation() async {
     if (state.status == DictationStatus.recording) return;
-
-    // VAD is disabled by commenting out the VAD initialization.
-    // if (_model is! OnlineModel) {
-    //   _vad ??= await loadSileroVad();
-    // }
 
     if (isTest) {
       _processingCompleter ??= Completer<void>();
@@ -123,8 +127,8 @@ class DictationNotifier extends StateNotifier<DictationState> {
         print('Processing file ${_testFiles.currentFileIndex + 1}'
             '/${_testFiles.length}: ${_testFiles.currentFile}');
 
-        // NEW: Set up a periodic timer in test mode for offline models when VAD is off.
-        if (_model is! OnlineModel && _vad == null) {
+        // Set up a periodic timer in test mode for offline models (without VAD)
+        if (_model is! OnlineModel) {
           _processingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
             if (_rollingCache.isNotEmpty) {
               _processCache();
@@ -142,7 +146,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
         // Use a timer for offline models or UI updates with online models.
         if (_model is! OnlineModel) {
           _processingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-            if (_rollingCache.isNotEmpty && _vad == null) {
+            if (_rollingCache.isNotEmpty) {
               _processCache();
             }
           });
@@ -169,41 +173,23 @@ class DictationNotifier extends StateNotifier<DictationState> {
     if (state.status != DictationStatus.recording) return;
 
     try {
-      // For online models, process audio directly without VAD
+      // For online models, process audio directly
       if (_model is OnlineModel) {
         final result = _model.processAudio(audioData, sampleRate);
         _updateTranscript(result);
         return; // Early return
       }
 
-      // Below this point is only for offline models
-      final Float32List floatAudio = convertBytesToFloat32(audioData);
-
-      // Use VAD for offline models if available
-      if (_vad != null) {
-        _vad!.acceptWaveform(floatAudio);
-        while (!_vad!.isEmpty()) {
-          final segment = _vad!.front();
-          final samples = segment.samples;
-          final segmentAudio = convertFloat32ToBytes(samples);
-
-          // Add to rolling cache and process
-          _rollingCache.addChunk(segmentAudio);
-          _processCache();
-
-          _vad!.pop();
-        }
-      } else {
-        // No VAD, just add to rolling cache
-        _rollingCache.addChunk(audioData);
-      }
+      // For offline models, simply add the audio data to the rolling cache.
+      _rollingCache.addChunk(audioData);
     } catch (e) {
       print('Error processing audio data chunk: $e');
     }
   }
 
-  /// Only for offline: process the RollingCache audio (e.g., every 1s).
+  /// Only for offline: process the RollingCache audio (e.g., every 2 seconds).
   /// We decode the entire cache, then combine transcripts.
+
   void _processCache() {
     if (_rollingCache.isEmpty) return;
 
@@ -212,7 +198,6 @@ class DictationNotifier extends StateNotifier<DictationState> {
       if (isTest) {
         print(
             'Processing audio chunk of ${audioData.length} bytes (${audioData.length / (2 * sampleRate)} seconds)');
-
         _processingStopwatch = Stopwatch()..start();
       }
       final transcriptionResult = _model is OfflineRecognizerModel
@@ -226,16 +211,15 @@ class DictationNotifier extends StateNotifier<DictationState> {
       print('Current transcript before combining: "${state.fullTranscript}"');
       print('New transcription result: "$transcriptionResult"');
 
-      final combinedText =
-          '${state.fullTranscript} $transcriptionResult'.trim();
-
+      // Use the transcription combiner here instead of naive concatenation
+      final combinedText = _transcriptionCombiner.combineTranscripts(
+          state.fullTranscript, transcriptionResult);
       print('Combined transcript: "$combinedText"');
 
       state = state.copyWith(
         currentChunkText: transcriptionResult,
         fullTranscript: combinedText,
       );
-      _rollingCache.clear();
     } catch (e) {
       print('Error during chunk processing: $e');
       state = state.copyWith(
@@ -295,33 +279,22 @@ class DictationNotifier extends StateNotifier<DictationState> {
           : ref.read(recorderProvider.notifier);
       await recorder.stopStreaming();
 
-      // For offline models with VAD
-      if (_model is! OnlineModel && _vad != null) {
-        _vad?.flush();
-        while (!_vad!.isEmpty()) {
-          final segment = _vad!.front();
-          final samples = segment.samples;
-          final audioData = convertFloat32ToBytes(samples);
-
-          _rollingCache.addChunk(audioData);
-          _vad!.pop();
-        }
-
-        // Process any remaining audio in the cache
+      // For offline models, simply process any remaining audio in the rolling cache.
+      if (_model is! OnlineModel) {
         _processCache();
       }
       // For online models
-      else if (_model is OnlineModel) {
+      else {
         // Finalize any pending transcription
         final onlineModel = _model;
         // Send a small silence buffer to finalize pending transcription
         final silenceBuffer = Float32List(sampleRate ~/ 4); // ~250ms of silence
+        onlineModel.finalizeDecoding();
         final result = onlineModel.processAudio(
             convertFloat32ToBytes(silenceBuffer), sampleRate);
         if (result.trim().isNotEmpty) {
           _updateTranscript(result);
         }
-        onlineModel.finalizeDecoding();
         _resetOnlineModel();
       }
 
@@ -345,8 +318,6 @@ class DictationNotifier extends StateNotifier<DictationState> {
     if (_model is KeywordSpotterModel) {
       // For offline models, append as before
       final combinedText = '${state.fullTranscript}\n$newText'.trim();
-
-      // For keyword spotter models, return the keyword only
       state = state.copyWith(
         currentChunkText: newText,
         fullTranscript: combinedText.trim(),
@@ -358,8 +329,9 @@ class DictationNotifier extends StateNotifier<DictationState> {
         fullTranscript: newText.trim(),
       );
     } else {
-      // For offline models, append as before
-      final combinedText = '${state.fullTranscript} $newText'.trim();
+      // For offline models, simply append new text
+      final combinedText = _transcriptionCombiner.combineTranscripts(
+          state.fullTranscript, newText);
       state = state.copyWith(
         currentChunkText: newText,
         fullTranscript: combinedText,
@@ -370,9 +342,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
   @override
   void dispose() {
     _rollingCache.clear();
-    if (_vad != null) {
-      _vad?.free();
-    }
+    // Removed VAD cleanup.
     super.dispose();
   }
 }

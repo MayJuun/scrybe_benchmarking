@@ -2,6 +2,16 @@
 
 I'm sure there are faster ways to do this, but this allowed me to test locally on my PC and use Flutter in the process. Happy for any PRs or suggestions anyone has.
 
+## Preferences to date
+- Best Streaming: sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms
+- Best Offline Live (tie): 
+    - sherpa-onnx-moonshine-base-en-int8
+    - sherpa-onnx-nemo-fast-conformer-transducer-en-24500
+- Best Offline Batch
+    - minimal: sherpa-onnx-whisper-base.en
+    - best for mobile: sherpa-onnx-whisper-small.en.int8
+    - best for computer: sherpa-onnx-whisper-turbo
+
 ## Setup
 
 ### General
@@ -186,10 +196,35 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 | sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | offline | 16.83 | 0.030 | 564 |
 | sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | offline | 26.82 | 0.000 | 0 |
 
-
 ## Run 9 (offline)
 | Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
 |-------|------|----------|---------|------------------|
 | sherpa-onnx-moonshine-base-en-int8 | offline | 12.48 | 0.061 | 1227 |
 | sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | offline | 16.31 | 0.031 | 609 |
 | sherpa-onnx-whisper-small.en.int8 | offline | 10.10 | 0.438 | 8539 |
+
+## Run 10 (offline)
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-whisper-base.en | offline | 11.17 | 0.144 | 3255 |
+| sherpa-onnx-whisper-distil-medium.en | offline | 11.22 | 0.306 | 6819 |
+| sherpa-onnx-whisper-medium.en.int8 | offline | 9.03 | 1.320 | 29841 |
+| sherpa-onnx-whisper-small.en.int8 | offline | 9.15 | 0.377 | 8528 |
+| sherpa-onnx-whisper-turbo | offline | 8.22 | 0.548 | 12203 |
+
+## Run 11 (offline)
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-whisper-base.en | offline | 14.15 | 0.160 | 3073 |
+| sherpa-onnx-whisper-distil-medium.en | offline | 16.82 | 0.338 | 6366 |
+| sherpa-onnx-whisper-small.en.int8 | offline | 12.72 | 0.435 | 8316 |
+| sherpa-onnx-whisper-turbo | offline | 11.59 | 0.609 | 11444 |
+
+
+## Run 12 (offline)
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-whisper-base.en | offline | 11.51 | 0.167 | 3257 |
+| sherpa-onnx-whisper-distil-medium.en | offline | 13.44 | 0.364 | 6959 |
+| sherpa-onnx-whisper-small.en.int8 | offline | 10.1 | 0.446 | 8666 |
+| sherpa-onnx-whisper-turbo | offline | 9.84 | 0.627 | 11972 |

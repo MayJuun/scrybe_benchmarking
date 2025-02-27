@@ -15,6 +15,7 @@ dependencies:
     sdk: flutter
   flutter_recorder: ^1.0.0
   flutter_riverpod: ^2.6.1
+  fuzzywuzzy: ^1.2.0
   path: ^1.9.0
   path_provider: ^2.1.5
   permission_handler: ^11.3.1
@@ -48,23 +49,34 @@ flutter:
     - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/joiner.onnx
     - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/tokens.txt
 
-    # sherpa-onnx-whisper-medium.en.int8 (offline)
-    # - assets/models/sherpa-onnx-whisper-medium.en.int8/medium.en-decoder.int8.onnx
-    # - assets/models/sherpa-onnx-whisper-medium.en.int8/medium.en-encoder.int8.onnx
-    # - assets/models/sherpa-onnx-whisper-medium.en.int8/medium.en-tokens.txt
-
     # sherpa-onnx-whisper-small.en.int8 (offline)
-    - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-decoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-encoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-tokens.txt
+    # - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-decoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-encoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-tokens.txt
 
-    # sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01
-    - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx
-    - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx
-    - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx
-    - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/tokens.txt
-    - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/bpe.model
-    - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/keywords.txt
+    # sherpa-onnx-whisper-base.en (offline)
+    # - assets/models/sherpa-onnx-whisper-base.en/base.en-decoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-base.en/base.en-encoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-base.en/base.en-tokens.txt
+
+    # sherpa-onnx-whisper-distil-medium.en (offline)
+    # - assets/models/sherpa-onnx-whisper-distil-medium.en/distil-medium.en-decoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-distil-medium.en/distil-medium.en-encoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-distil-medium.en/distil-medium.en-tokens.txt
+
+    # sherpa-onnx-whisper-turbo (offline)
+    # - assets/models/sherpa-onnx-whisper-turbo/turbo-decoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-turbo/turbo-encoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-turbo/turbo-encoder.weights
+    # - assets/models/sherpa-onnx-whisper-turbo/turbo-tokens.txt
+
+    # sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01 (keyword spotting)
+    # - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx
+    # - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx
+    # - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx
+    # - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/tokens.txt
+    # - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/bpe.model
+    # - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/keywords.txt
 
     # sherpa-onnx-online-punct-en-2024-08-06 (punctuation model)
     # - assets/models/sherpa-onnx-online-punct-en-2024-08-06/model.onnx

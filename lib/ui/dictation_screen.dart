@@ -32,10 +32,9 @@ class _DictationScreenState extends ConsumerState<DictationScreen> {
   @override
   Widget build(BuildContext context) {
     final selectedModel = ref.watch(selectedModelProvider);
-    final dictationState =
-        selectedModel != null
-            ? ref.watch(dictationProvider(selectedModel))
-            : null;
+    final dictationState = selectedModel != null
+        ? ref.watch(dictationProvider(selectedModel))
+        : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -112,13 +111,13 @@ class _DictationScreenState extends ConsumerState<DictationScreen> {
                 onPressed: () async {
                   final notifier =
                       ref.read(dictationProvider(selectedModel).notifier);
-                  
+
                   if (dictationState?.status == DictationStatus.recording) {
                     notifier.stopDictation();
                   } else {
                     notifier.startDictation();
                   }
-                                },
+                },
               ),
             ],
 
