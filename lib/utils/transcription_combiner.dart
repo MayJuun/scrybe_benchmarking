@@ -61,6 +61,26 @@ class TranscriptionCombiner {
       return cleanNew;
     }
 
+    // Find the overlap point - where new text matches the end of existing text
+    int overlapIndex = _findOverlapPoint(cleanExisting, cleanNew);
+
+    // If we found a good overlap point
+    if (overlapIndex > 0) {
+      // Only append the non-overlapping part
+      final uniqueNewContent = cleanNew.substring(overlapIndex);
+      if (uniqueNewContent.trim().isNotEmpty) {
+        final combinedText = cleanExisting + uniqueNewContent;
+        _updateState(cleanNew);
+        if (config.debug) print('Result (appended new content): $combinedText');
+        return combinedText;
+      } else {
+        // No new content to add
+        _updateState(cleanNew);
+        if (config.debug) print('Result (no new content): $cleanExisting');
+        return cleanExisting;
+      }
+    }
+
     // Check if the new text already contains the existing transcript
     if (_containsText(cleanNew.toLowerCase(), cleanExisting.toLowerCase())) {
       _updateState(cleanNew);
@@ -122,6 +142,51 @@ class TranscriptionCombiner {
     _updateState(cleanNew);
     if (config.debug) print('Result (unchanged): $cleanExisting');
     return cleanExisting;
+  }
+
+  // Helper method to find the exact point where new text starts adding unique content
+  int _findOverlapPoint(String existing, String newText) {
+    // Start with a reasonable minimum overlap to consider
+    int minOverlap = config.minOverlapWords * 5; // Rough character count
+
+    // If either text is too short, use a smaller overlap requirement
+    if (existing.length < minOverlap || newText.length < minOverlap) {
+      minOverlap = min(existing.length, newText.length) - 1;
+      if (minOverlap <= 0) return 0;
+    }
+
+    // Try different lengths of overlap, starting with the largest possible
+    for (int overlapLen = min(existing.length, newText.length);
+        overlapLen >= minOverlap;
+        overlapLen--) {
+      // Don't check if overlap length is greater than existing text
+      if (overlapLen > existing.length) continue;
+
+      String existingSuffix = existing.substring(existing.length - overlapLen);
+      String newTextPrefix = newText.substring(0, overlapLen);
+
+      // For an exact match
+      if (existingSuffix == newTextPrefix) {
+        if (config.debug)
+          print('Found exact overlap of $overlapLen characters');
+        return overlapLen;
+      }
+
+      // For fuzzy matching (to handle small transcription differences)
+      if (config.useFuzzyMatching) {
+        double similarity =
+            ratio(existingSuffix.toLowerCase(), newTextPrefix.toLowerCase()) /
+                100.0;
+        if (similarity > config.similarityThreshold) {
+          if (config.debug)
+            print(
+                'Found fuzzy overlap of $overlapLen characters (similarity: ${(similarity * 100).toStringAsFixed(1)}%)');
+          return overlapLen;
+        }
+      }
+    }
+
+    return 0; // No good overlap found
   }
 
   List<String> _generateNgrams(String text) {
@@ -267,5 +332,25 @@ class TranscriptionCombiner {
 
   void _updateState(String newText) {
     _previousText = newText;
+  }
+
+  // Detects if a new text is likely a truncated version of old text
+  bool isPossiblyTruncatedFrom(String oldText, String newText) {
+    if (oldText.isEmpty || newText.isEmpty) return false;
+
+    // Check if newText might be a truncated version of oldText
+    // by comparing overlapping suffixes and prefixes
+    int minLength = min(oldText.length, newText.length);
+    int checkLength = min(minLength, 30); // Check up to 30 chars
+
+    String oldSuffix = oldText.substring(oldText.length - checkLength);
+    String newPrefix = newText.substring(0, min(checkLength, newText.length));
+
+    // Use fuzzy matching to find if there's significant overlap
+    double suffixPrefixScore = config.useFuzzyMatching
+        ? ratio(oldSuffix.toLowerCase(), newPrefix.toLowerCase()) / 100.0
+        : 0.0;
+
+    return suffixPrefixScore > 0.7; // 70% similarity threshold
   }
 }
