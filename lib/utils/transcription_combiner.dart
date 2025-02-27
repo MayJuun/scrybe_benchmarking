@@ -1,356 +1,261 @@
 import 'dart:math';
-import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 
-class TranscriptionConfig {
-  final int ngramSize;
-  final double similarityThreshold;
-  final int minOverlapWords;
+/// A transcript combiner that focuses on finding and merging overlapping regions
+/// using a suffix-prefix matching approach with special handling for early chunks.
+class TranscriptCombiner {
+  // Track the previous chunk to avoid duplicate processing
+  String _previousChunk = '';
+
+  // Track how many chunks we've processed (for early replacement logic)
+  int _chunkCount = 0;
+
+  // Configuration
   final bool debug;
-  final bool useFuzzyMatching;
+  final double similarityThreshold;
+  final int earlyChunksToReplace;
 
-  // Scanning parameters
-  final int
-      maxLookbackNgrams; // Explicit limit on how many ngrams to look back (0 = use smart limit)
-  final bool
-      scanFullText; // Whether to scan the full text for containment checks
-  final bool
-      useSmartLimit; // Use a smart limit based on the size of the new text
-
-  const TranscriptionConfig({
-    this.ngramSize = 2,
-    this.similarityThreshold = 0.75,
-    this.minOverlapWords = 2,
-    this.debug = true,
-    this.useFuzzyMatching = true,
-    this.maxLookbackNgrams = 0, // 0 = use smart limit instead of a fixed limit
-    this.scanFullText = true, // Enable full text containment checks
-    this.useSmartLimit = true, // Enable smart limiting based on new text length
+  TranscriptCombiner({
+    this.debug = false,
+    this.similarityThreshold = 0.7, // Minimum similarity to consider a match
+    this.earlyChunksToReplace =
+        4, // Replace for the first N chunks (approx. first 8-10 seconds)
   });
-}
 
-class TranscriptionCombiner {
-  final TranscriptionConfig config;
-  String _previousText = '';
-
-  TranscriptionCombiner({TranscriptionConfig? config})
-      : config = config ?? const TranscriptionConfig();
-
+  /// Combines existing transcript with new text by finding where they overlap
   String combineTranscripts(String existing, String newText) {
-    if (config.debug) {
-      print('Existing: $existing');
-      print('New: $newText');
+    if (debug) {
+      print('--- combineTranscripts START ---');
+      print('Existing: "$existing"');
+      print('New: "$newText"');
     }
 
-    // If nothing new or same as last update, return the current transcript.
-    if (newText.isEmpty || newText == _previousText) {
+    // Clean inputs and handle basic cases
+    newText = _cleanText(newText);
+
+    // Skip if empty or identical to previous chunk
+    if (newText.isEmpty || newText == _previousChunk) {
+      if (debug) print('No change or empty new text');
       return existing;
     }
+    _previousChunk = newText;
 
-    // Clean and normalize texts
-    final cleanNew = _cleanText(newText);
-    final cleanExisting = _cleanText(existing);
-
-    if (config.debug) {
-      print('Clean Existing: $cleanExisting');
-      print('Clean New: $cleanNew');
+    // If no existing transcript, just return the new text
+    existing = _cleanText(existing);
+    if (existing.isEmpty) {
+      if (debug) print('No existing transcript');
+      _chunkCount++;
+      return newText;
     }
 
-    // If there was no previous transcript, use the new one.
-    if (cleanExisting.isEmpty) {
-      _updateState(cleanNew);
-      return cleanNew;
-    }
-
-    // Find the overlap point - where new text matches the end of existing text
-    int overlapIndex = _findOverlapPoint(cleanExisting, cleanNew);
-
-    // If we found a good overlap point
-    if (overlapIndex > 0) {
-      // Only append the non-overlapping part
-      final uniqueNewContent = cleanNew.substring(overlapIndex);
-      if (uniqueNewContent.trim().isNotEmpty) {
-        final combinedText = cleanExisting + uniqueNewContent;
-        _updateState(cleanNew);
-        if (config.debug) print('Result (appended new content): $combinedText');
-        return combinedText;
-      } else {
-        // No new content to add
-        _updateState(cleanNew);
-        if (config.debug) print('Result (no new content): $cleanExisting');
-        return cleanExisting;
+    // Special handling for early chunks: during initial transcription build-up,
+    // we prefer to replace with newer versions when they're substantially different
+    if (_chunkCount < earlyChunksToReplace) {
+      if (debug) print('Early chunk detected (chunk #${_chunkCount + 1})');
+      if (_shouldReplaceEarly(existing, newText)) {
+        if (debug) print('Replacing early transcript with newer version');
+        _chunkCount++;
+        return newText;
       }
     }
 
-    // Check if the new text already contains the existing transcript
-    if (_containsText(cleanNew.toLowerCase(), cleanExisting.toLowerCase())) {
-      _updateState(cleanNew);
-      if (config.debug) print('Result (new contains existing): $cleanNew');
-      return cleanNew;
+    // Convert to word arrays for matching
+    final existingWords = existing.split(' ');
+    final newWords = newText.split(' ');
+
+    // Find the best overlap point
+    final overlapResult = _findBestOverlap(existingWords, newWords);
+
+    if (debug) {
+      print('Best overlap found:');
+      print('  Similarity: ${overlapResult.similarity}');
+      print('  Existing position: ${overlapResult.existingPos}');
+      print('  Overlap length: ${overlapResult.overlapLength}');
     }
 
-    // Check if the existing text already contains the new text
-    if (config.scanFullText &&
-        _containsText(cleanExisting.toLowerCase(), cleanNew.toLowerCase())) {
-      _updateState(cleanNew);
-      if (config.debug) print('Result (existing contains new): $cleanExisting');
-      return cleanExisting;
-    }
+    // If we found a good overlap, combine the texts
+    if (overlapResult.similarity >= similarityThreshold) {
+      // 1. Keep existing text up to the overlap point
+      final prefix = existingWords.sublist(0, overlapResult.existingPos);
+      // 2. Use the new text from that point forward (make a copy)
+      final newContent = List<String>.from(newWords);
 
-    // Generate n-grams for both texts for overlap detection.
-    final existingNgrams = _generateNgrams(cleanExisting);
-    final newNgrams = _generateNgrams(cleanNew);
-
-    // Find the best overlap point - using the ENTIRE text, not just the last few ngrams
-    final (int overlapStart, double overlapScore) =
-        _findBestOverlap(existingNgrams, newNgrams);
-
-    if (config.debug) {
-      print('Best overlap score: $overlapScore at position: $overlapStart');
-    }
-
-    // If a good overlap is found, merge the transcripts at the overlap.
-    if (overlapScore >= config.similarityThreshold) {
-      final result = _mergeAtOverlap(cleanExisting, cleanNew, overlapStart);
-      _updateState(cleanNew);
-      if (config.debug) print('Result (merged at overlap): $result');
-      return result;
-    }
-
-    // Otherwise, if the texts differ, append only the non-duplicate portion.
-    if (cleanExisting.toLowerCase() != cleanNew.toLowerCase()) {
-      // Check for substantial similarity between texts to avoid duplication
-      double fullTextSimilarity = config.useFuzzyMatching
-          ? ratio(cleanExisting.toLowerCase(), cleanNew.toLowerCase()) / 100.0
-          : 0.0;
-
-      if (fullTextSimilarity > 0.8) {
-        // If texts are very similar, use the longer one
-        String result =
-            cleanExisting.length > cleanNew.length ? cleanExisting : cleanNew;
-        _updateState(cleanNew);
-        if (config.debug) print('Result (using similar text): $result');
-        return result;
+      // Enhanced join-point handling: compare a window of 2 words
+      const int windowSize = 2;
+      if (prefix.length >= windowSize && newContent.length >= windowSize) {
+        bool windowMatches = true;
+        for (int i = 0; i < windowSize; i++) {
+          final wordFromPrefix = prefix[prefix.length - windowSize + i]
+              .toLowerCase()
+              .replaceAll(RegExp(r'[,.?!:;]'), '');
+          final wordFromNew =
+              newContent[i].toLowerCase().replaceAll(RegExp(r'[,.?!:;]'), '');
+          if (!_wordsSimilar(wordFromPrefix, wordFromNew)) {
+            windowMatches = false;
+            break;
+          }
+        }
+        if (windowMatches) {
+          if (debug) {
+            print(
+                'Duplicate window detected at join point: removing first $windowSize words of new text');
+          }
+          newContent.removeRange(0, windowSize);
+        }
       }
 
-      // Use a simple concatenation with a space in between.
-      final combined = '$cleanExisting $cleanNew';
-      _updateState(cleanNew);
-      if (config.debug) print('Result (appended): $combined');
+      final combined = [...prefix, ...newContent].join(' ');
+      if (debug) {
+        print('Combining with overlap. Result: "$combined"');
+      }
+      _chunkCount++;
       return combined;
     }
 
-    _updateState(cleanNew);
-    if (config.debug) print('Result (unchanged): $cleanExisting');
-    return cleanExisting;
-  }
-
-  // Helper method to find the exact point where new text starts adding unique content
-  int _findOverlapPoint(String existing, String newText) {
-    // Start with a reasonable minimum overlap to consider
-    int minOverlap = config.minOverlapWords * 5; // Rough character count
-
-    // If either text is too short, use a smaller overlap requirement
-    if (existing.length < minOverlap || newText.length < minOverlap) {
-      minOverlap = min(existing.length, newText.length) - 1;
-      if (minOverlap <= 0) return 0;
+    // No significant overlap found - check if texts might contain each other
+    if (_isTextContained(newText, existing)) {
+      if (debug) print('New text appears to contain all existing text');
+      _chunkCount++;
+      return newText;
     }
 
-    // Try different lengths of overlap, starting with the largest possible
-    for (int overlapLen = min(existing.length, newText.length);
-        overlapLen >= minOverlap;
-        overlapLen--) {
-      // Don't check if overlap length is greater than existing text
-      if (overlapLen > existing.length) continue;
+    // If all else fails, simply append with a separator
+    if (debug) print('No overlap found - appending with separator');
+    final separator = existing.endsWith('.') ? ' ' : '. ';
+    _chunkCount++;
+    return existing + separator + newText;
+  }
 
-      String existingSuffix = existing.substring(existing.length - overlapLen);
-      String newTextPrefix = newText.substring(0, overlapLen);
+  /// Determine if we should replace the early transcript with the new version
+  bool _shouldReplaceEarly(String existing, String newText) {
+    if (newText.length > existing.length * 1.3) {
+      if (debug) print('New text is significantly longer than existing');
+      return true;
+    }
+    final existingProblemScore = _countTranscriptionProblems(existing);
+    final newProblemScore = _countTranscriptionProblems(newText);
+    if (newProblemScore < existingProblemScore) {
+      if (debug) print('New text has fewer transcription problems');
+      return true;
+    }
+    final similarity = _textSimilarity(existing, newText);
+    if (similarity > 0.7 && newProblemScore < existingProblemScore) {
+      if (debug) print('Texts are similar but new is cleaner');
+      return true;
+    }
+    return false;
+  }
 
-      // For an exact match
-      if (existingSuffix == newTextPrefix) {
-        if (config.debug)
-          print('Found exact overlap of $overlapLen characters');
-        return overlapLen;
+  /// Count patterns that might indicate transcription problems
+  int _countTranscriptionProblems(String text) {
+    int score = 0;
+    final repeatedPattern = RegExp(r'(\w+)(-\1)+');
+    score += repeatedPattern.allMatches(text).length * 3;
+    final shortWordSequence = RegExp(r'\b\w{1,2}\b \b\w{1,2}\b \b\w{1,2}\b');
+    score += shortWordSequence.allMatches(text).length;
+    final unusualPunctuation = RegExp(r'\.{2,}|,{2,}|\s{2,}');
+    score += unusualPunctuation.allMatches(text).length;
+    return score;
+  }
+
+  /// Find the best suffix-prefix overlap between two word lists
+  _OverlapResult _findBestOverlap(
+      List<String> existingWords, List<String> newWords) {
+    _OverlapResult bestOverlap = _OverlapResult();
+    final maxOverlapToCheck = min(existingWords.length, newWords.length);
+    for (int overlapLen = maxOverlapToCheck; overlapLen >= 3; overlapLen--) {
+      if (existingWords.length < overlapLen) continue;
+      final existingStartPos = existingWords.length - overlapLen;
+      final existingSuffix = existingWords.sublist(existingStartPos);
+      final newPrefix = newWords.sublist(0, overlapLen);
+      final similarity = _calculateSimilarity(existingSuffix, newPrefix);
+      if (similarity > bestOverlap.similarity) {
+        bestOverlap = _OverlapResult(
+          existingPos: existingStartPos,
+          overlapLength: overlapLen,
+          similarity: similarity,
+        );
+        if (similarity > 0.9) break;
       }
+    }
+    return bestOverlap;
+  }
 
-      // For fuzzy matching (to handle small transcription differences)
-      if (config.useFuzzyMatching) {
-        double similarity =
-            ratio(existingSuffix.toLowerCase(), newTextPrefix.toLowerCase()) /
-                100.0;
-        if (similarity > config.similarityThreshold) {
-          if (config.debug)
-            print(
-                'Found fuzzy overlap of $overlapLen characters (similarity: ${(similarity * 100).toStringAsFixed(1)}%)');
-          return overlapLen;
-        }
+  /// Calculate similarity between two word lists
+  double _calculateSimilarity(List<String> words1, List<String> words2) {
+    if (words1.length != words2.length) return 0.0;
+    int matches = 0;
+    for (int i = 0; i < words1.length; i++) {
+      if (_wordsSimilar(words1[i], words2[i])) {
+        matches++;
       }
     }
-
-    return 0; // No good overlap found
+    return matches / words1.length;
   }
 
-  List<String> _generateNgrams(String text) {
-    final words = text.split(' ');
-    if (words.length < config.ngramSize) {
-      return [text];
+  /// Calculate simple text similarity ratio
+  double _textSimilarity(String text1, String text2) {
+    final words1 = text1.split(' ');
+    final words2 = text2.split(' ');
+    final minLen = min(words1.length, words2.length);
+    final maxLen = max(words1.length, words2.length);
+    int matches = 0;
+    for (int i = 0; i < minLen; i++) {
+      if (_wordsSimilar(words1[i], words2[i])) {
+        matches++;
+      }
     }
-
-    return List.generate(
-      words.length - config.ngramSize + 1,
-      (i) => words.sublist(i, i + config.ngramSize).join(' '),
-    );
+    return matches / maxLen;
   }
 
-  // Check if text1 contains text2, allowing for some fuzzy matching
-  bool _containsText(String text1, String text2) {
-    // Direct containment check
+  /// Check if two words are similar (exact or close match)
+  bool _wordsSimilar(String word1, String word2) {
+    word1 = word1.toLowerCase().replaceAll(RegExp(r'[,.?!:;]'), '');
+    word2 = word2.toLowerCase().replaceAll(RegExp(r'[,.?!:;]'), '');
+    if (word1 == word2) return true;
+    if (word1.length < 4 || word2.length < 4) return false;
+    int sameChars = 0;
+    final len = min(word1.length, word2.length);
+    for (int i = 0; i < len; i++) {
+      if (word1[i] == word2[i]) {
+        sameChars++;
+      }
+    }
+    final maxLen = max(word1.length, word2.length);
+    return sameChars / maxLen > 0.7;
+  }
+
+  /// Check if text1 approximately contains text2
+  bool _isTextContained(String text1, String text2) {
     if (text1.contains(text2)) return true;
-
-    // For short text or when fuzzy matching is disabled, rely on direct check
-    if (!config.useFuzzyMatching || text2.length < 15) return false;
-
-    // For fuzzy matching with longer texts, use a more sophisticated approach
-    final ratio = partialRatio(text1, text2) / 100.0;
-    return ratio > 0.9; // High threshold for containment
-  }
-
-  // Returns a record (tuple) containing the best overlap position and score.
-  (int, double) _findBestOverlap(
-      List<String> existingNgrams, List<String> newNgrams) {
-    var bestScore = 0.0;
-    var bestPosition = -1;
-
-    // Determine how far back to look in the existing text
-    int startIdx;
-
-    if (config.maxLookbackNgrams > 0) {
-      // Case 1: Explicit fixed limit is specified
-      startIdx = max(0, existingNgrams.length - config.maxLookbackNgrams);
-    } else if (config.useSmartLimit) {
-      // Case 2: Smart limit based on new text length plus a buffer
-      // Rationale: An overlap shouldn't be longer than the new text itself
-      final newTextLength = newNgrams.length;
-      final bufferSize = 5; // Small buffer to catch partial overlaps
-      final smartLimit = newTextLength + bufferSize;
-      startIdx = max(0, existingNgrams.length - smartLimit);
-
-      if (config.debug) {
-        print('Using smart limit: looking back ${existingNgrams.length - startIdx} ngrams ' +
-            '(new text length: $newTextLength ngrams + buffer: $bufferSize)');
-      }
-    } else {
-      // Case 3: No limiting - check the entire text
-      startIdx = 0;
-    }
-
-    // Look through all ngrams in the existing text (or a limited window)
-    for (var i = startIdx; i < existingNgrams.length; i++) {
-      // Check all ngrams in the new text (or a reasonable limit)
-      final maxNewCheck =
-          min(newNgrams.length, 50); // Limit how many new ngrams we check
-      for (var j = 0; j < maxNewCheck; j++) {
-        final score = _calculateSimilarity(existingNgrams[i], newNgrams[j]);
-        if (score > bestScore) {
-          bestScore = score;
-          bestPosition = i;
-        }
+    final words1 = text1.split(' ');
+    final words2 = text2.split(' ');
+    if (words2.length > words1.length) return false;
+    for (int i = 0; i <= words1.length - words2.length; i++) {
+      final window = words1.sublist(i, i + words2.length);
+      final similarity = _calculateSimilarity(window, words2);
+      if (similarity > 0.8) {
+        return true;
       }
     }
-
-    // For longer texts, also try to find longer matching sequences
-    // This helps catch multi-word overlaps that might be missed by individual ngrams
-    if (existingNgrams.length > 10 && newNgrams.length > 10) {
-      // Try different window sizes for matching
-      for (var windowSize = 3; windowSize <= 8; windowSize++) {
-        for (var i = max(0, existingNgrams.length - 30);
-            i < existingNgrams.length - windowSize + 1;
-            i++) {
-          for (var j = 0; j < min(20, newNgrams.length - windowSize + 1); j++) {
-            // Compare sequences of ngrams
-            var sequenceScore = 0.0;
-            for (var k = 0; k < windowSize; k++) {
-              sequenceScore +=
-                  _calculateSimilarity(existingNgrams[i + k], newNgrams[j + k]);
-            }
-            sequenceScore /= windowSize; // Average score
-
-            if (sequenceScore > bestScore) {
-              bestScore = sequenceScore;
-              bestPosition = i;
-            }
-          }
-        }
-      }
-    }
-
-    return (bestPosition, bestScore);
+    return false;
   }
 
-  // Updated similarity calculation using fuzzywuzzy.
-  double _calculateSimilarity(String ngram1, String ngram2) {
-    if (!config.useFuzzyMatching) {
-      // Fallback: use original exact word-by-word matching.
-      if (ngram1 == ngram2) return 1.0;
-      ngram1 = ngram1.toLowerCase();
-      ngram2 = ngram2.toLowerCase();
-
-      final words1 = ngram1.split(' ');
-      final words2 = ngram2.split(' ');
-
-      var matchingWords = 0;
-      for (var i = 0; i < words1.length; i++) {
-        if (i < words2.length && words1[i] == words2[i]) {
-          matchingWords++;
-        }
-      }
-
-      return matchingWords / config.ngramSize;
-    } else {
-      // Use fuzzywuzzy's ratio to get a percentage similarity.
-      final score = ratio(ngram1.toLowerCase(), ngram2.toLowerCase());
-      return score / 100.0;
-    }
-  }
-
-  String _mergeAtOverlap(String existing, String newText, int overlapPosition) {
-    final existingWords = existing.split(' ');
-
-    // Take existing text up to the overlap point
-    final prefix = existingWords.take(overlapPosition).join(' ');
-
-    // Return prefix + new text
-    return prefix.isEmpty ? newText : '$prefix $newText';
-  }
-
+  /// Clean and normalize text for consistent matching
   String _cleanText(String text) {
-    return text
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .replaceAll(RegExp(r'[.!?]+\s*'), '. ')
-        .replaceAll(RegExp(r'\|\s*'), ' ')
-        .trim();
+    if (text.isEmpty) return '';
+    return text.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
+}
 
-  void _updateState(String newText) {
-    _previousText = newText;
-  }
+/// Helper class to store overlap information
+class _OverlapResult {
+  final int existingPos;
+  final int overlapLength;
+  final double similarity;
 
-  // Detects if a new text is likely a truncated version of old text
-  bool isPossiblyTruncatedFrom(String oldText, String newText) {
-    if (oldText.isEmpty || newText.isEmpty) return false;
-
-    // Check if newText might be a truncated version of oldText
-    // by comparing overlapping suffixes and prefixes
-    int minLength = min(oldText.length, newText.length);
-    int checkLength = min(minLength, 30); // Check up to 30 chars
-
-    String oldSuffix = oldText.substring(oldText.length - checkLength);
-    String newPrefix = newText.substring(0, min(checkLength, newText.length));
-
-    // Use fuzzy matching to find if there's significant overlap
-    double suffixPrefixScore = config.useFuzzyMatching
-        ? ratio(oldSuffix.toLowerCase(), newPrefix.toLowerCase()) / 100.0
-        : 0.0;
-
-    return suffixPrefixScore > 0.7; // 70% similarity threshold
-  }
+  _OverlapResult({
+    this.existingPos = 0,
+    this.overlapLength = 0,
+    this.similarity = 0.0,
+  });
 }

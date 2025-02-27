@@ -10,7 +10,7 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 - Best Offline Batch
     - minimal: sherpa-onnx-whisper-base.en
     - best for mobile: sherpa-onnx-whisper-small.en.int8
-    - best for computer: sherpa-onnx-whisper-turbo
+    - (1 GB): sherpa-onnx-whisper-turbo
 
 ## Setup
 

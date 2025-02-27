@@ -70,15 +70,8 @@ class DictationNotifier extends StateNotifier<DictationState> {
   final TestFiles _testFiles;
   final List<BenchmarkMetrics> _allMetrics = [];
   Completer<void>? _processingCompleter;
-  final _transcriptionCombiner = TranscriptionCombiner(
-    config: TranscriptionConfig(
-      similarityThreshold: 0.75,
-      debug: true,
-      useFuzzyMatching: true,
-      maxLookbackNgrams: 0, // 0 = use smart limit instead
-      useSmartLimit: true, // Enable adaptive limiting
-      scanFullText: true, // Still scan full text for containment checks
-    ),
+  final _transcriptionCombiner = TranscriptCombiner(
+    debug: true,
   );
 
   bool isTest = false;

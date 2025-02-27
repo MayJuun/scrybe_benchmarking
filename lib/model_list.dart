@@ -27,7 +27,7 @@ Future<List<AsrModel>> loadModels() async {
 
   // Group models by type:
   models.addAll(await loadOfflineModels());
-  models.addAll(await loadOnlineModels());
+  // models.addAll(await loadOnlineModels());
   // models.addAll(await loadKeywordSpotterModels());
   // models.addAll(await loadWhisperModels());
 
@@ -69,6 +69,22 @@ Future<List<AsrModel>> loadOfflineModels() async {
   } catch (e) {
     print('Failed to load Nemo fast conformer transducer model: $e');
   }
+
+  // try {
+  //   models.add(await OfflineRecognizerModel.createTransducer(
+  //     modelName: 'sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000',
+  //     encoder: 'encoder.onnx',
+  //     decoder: 'decoder.onnx',
+  //     joiner: 'joiner.onnx',
+  //     tokens: 'tokens.txt',
+  //     numThreads: 1,
+  //     modelType: 'nemo_transducer',
+  //     debug: true,
+  //     cacheSize: 6,
+  //   ));
+  // } catch (e) {
+  //   print('Failed to load Nemo fast conformer transducer model: $e');
+  // }
 
   return models;
 }
