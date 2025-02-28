@@ -3,8 +3,9 @@ import 'dart:typed_data';
 class RollingCache {
   final List<Uint8List> _chunks = [];
   int _totalBytes = 0;
+  final int cacheSize;
 
-  RollingCache();
+  RollingCache(this.cacheSize);
 
   bool get isEmpty => _chunks.isEmpty;
   bool get isNotEmpty => _chunks.isNotEmpty;
@@ -15,7 +16,7 @@ class RollingCache {
     _totalBytes += chunk.length;
 
     // Limit cache to approximately 20 seconds (assuming 16kHz, 16-bit audio)
-    final maxBytes = 16000 * 2 * 20; // 20 seconds of audio
+    final maxBytes = 16000 * 2 * cacheSize; // 20 seconds of audio
     while (_totalBytes > maxBytes && _chunks.isNotEmpty) {
       final oldestChunk = _chunks.removeAt(0);
       _totalBytes -= oldestChunk.length;

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
@@ -8,7 +9,7 @@ class DictationBenchmarkNotifier
     required super.ref,
     required super.model,
     super.sampleRate,
-  });
+  }) : super(state: DictationBenchmarkState());
 
   // Benchmark-specific fields
   AudioTestFiles? _testFiles;
@@ -57,16 +58,11 @@ class DictationBenchmarkNotifier
 
       // Set up timer for offline models
       if (model is! OnlineModel) {
-        processingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        processingTimer =
+            Timer.periodic(const Duration(milliseconds: 500), (_) {
           if (!service.isCacheEmpty()) {
             _processCache();
           }
-        });
-      } else {
-        service.resetOnlineModel(model);
-        processingTimer =
-            Timer.periodic(const Duration(milliseconds: 300), (_) {
-          // UI update timer - audio processing is done in onAudioData
         });
       }
     } catch (e) {
@@ -78,6 +74,30 @@ class DictationBenchmarkNotifier
     }
 
     return _processingCompleter!.future;
+  }
+
+  @override
+  void onAudioData(Uint8List audioData) {
+    if (state.status != DictationStatus.recording) return;
+
+    try {
+      // For online models, process audio directly with timing
+      if (model is OnlineModel) {
+        _processingStopwatch = Stopwatch()..start();
+        final result = service.processOnlineAudio(audioData, model, sampleRate);
+        print('result');
+        _processingStopwatch?.stop();
+        _accumulatedProcessingTime +=
+            _processingStopwatch?.elapsed ?? Duration.zero;
+        updateTranscript(result);
+        return;
+      } else {
+        // For offline models, just add to cache (timing handled in _processCache)
+        service.addToCache(audioData);
+      }
+    } catch (e) {
+      print('Error processing audio data chunk: $e');
+    }
   }
 
   void _processCache() {
@@ -121,17 +141,23 @@ class DictationBenchmarkNotifier
     await stopDictation(fileRecorderProvider);
 
     // Collect metrics
-    final metrics = BenchmarkMetrics.create(
-      modelName: model.modelName,
-      modelType: model is OnlineModel ? 'online' : 'offline',
-      wavFile: _testFiles!.currentFile,
-      transcription: state.fullTranscript,
-      reference: _testFiles!.currentReferenceTranscript ?? '',
-      processingDuration: _accumulatedProcessingTime,
-      audioLengthMs: _testFiles!.currentFileDuration ?? 0,
-    );
+    if (_accumulatedProcessingTime.inMilliseconds > 0 &&
+        (_testFiles?.currentFileDuration ?? 0) > 0) {
+      final metrics = BenchmarkMetrics.create(
+        modelName: model.modelName,
+        modelType: model is OnlineModel ? 'online' : 'offline',
+        wavFile: _testFiles!.currentFile,
+        transcription: state.fullTranscript,
+        reference: _testFiles!.currentReferenceTranscript ?? '',
+        processingDuration: _accumulatedProcessingTime,
+        audioLengthMs:
+            _testFiles!.currentFileDuration ?? 1, // Use 1 as a minimum
+      );
 
-    _allMetrics.add(metrics);
+      _allMetrics.add(metrics);
+    } else {
+      print('Skipping metrics - invalid timing data');
+    }
 
     // Reset timing
     _accumulatedProcessingTime = Duration.zero;

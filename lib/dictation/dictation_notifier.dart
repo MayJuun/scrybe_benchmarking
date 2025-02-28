@@ -13,7 +13,8 @@ class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
     required this.model,
     this.sampleRate = 16000,
     DictationState? state,
-  })  : service = DictationService(),
+  })  : service = DictationService(
+            model is OfflineRecognizerModel ? model.cacheSize : 20),
         super((state ?? const DictationState()) as T);
 
   final Ref ref;
@@ -42,12 +43,6 @@ class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
             _processCache();
           }
         });
-      } else {
-        service.resetOnlineModel(model);
-        processingTimer =
-            Timer.periodic(const Duration(milliseconds: 300), (_) {
-          // UI update timer - audio processing is done in onAudioData
-        });
       }
     } catch (e) {
       state = state.copyWith(
@@ -67,10 +62,10 @@ class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
         final result = service.processOnlineAudio(audioData, model, sampleRate);
         updateTranscript(result);
         return;
+      } else {
+        // For offline models, add to cache
+        service.addToCache(audioData);
       }
-
-      // For offline models, add to cache
-      service.addToCache(audioData);
     } catch (e) {
       print('Error processing audio data chunk: $e');
     }
@@ -134,10 +129,13 @@ class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
 
   void updateTranscript(String newText) {
     if (newText.trim().isEmpty) return;
+    print('Updating transcript with: $newText');
+    print('Current transcript: ${state.fullTranscript}');
 
     final updatedText = service.updateTranscriptByModelType(
         state.fullTranscript, newText, model);
 
+    print('Updated transcript: $updatedText');
     state = state.copyWith(
       currentChunkText: newText,
       fullTranscript: updatedText,

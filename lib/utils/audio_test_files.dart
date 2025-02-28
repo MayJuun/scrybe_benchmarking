@@ -50,7 +50,9 @@ class AudioTestFiles {
     final curatedDir =
         Directory(p.join(Directory.current.path, 'assets', 'curated'));
 
+    print('***************************************');
     print(!await curatedDir.exists());
+    print('***************************************');
 
     _testFiles.addAll(!await curatedDir.exists()
         ? []
@@ -64,6 +66,7 @@ class AudioTestFiles {
   }
 
   Future<void> _afterFilesLoad(int sampleRate) async {
+    print('Loaded ${_testFiles.length} test files');
     // Load transcripts (SRT files) and measure audio durations
     for (final audioFile in _testFiles) {
       final srtFile = audioFile.replaceAll(fileExtension, '.srt');
@@ -120,16 +123,37 @@ class AudioTestFiles {
   int? getFileDurationMs(String filePath) => _fileDurations[filePath];
 }
 
+/// A helper that reads WAV from assets and returns duration in ms.
+Future<int> assetWavDuration(String wavFile, int sampleRate) async {
+  // 1) Load the bytes from the asset bundle
+  final data = await rootBundle.load(wavFile);
+
+  // 2) WAV header is typically 44 bytes for simple PCM
+  if (data.lengthInBytes < 44) {
+    throw Exception('WAV file too small or invalid header: $wavFile');
+  }
+
+  // 3) Extract PCM frames (skip header)
+  final pcmBytes = data.buffer.asUint8List(44);
+
+  // 4) For 16-bit, single-channel: 2 bytes/sample
+  final sampleCount = pcmBytes.length ~/ 2;
+
+  // 5) Duration = samples / sampleRate, and then convert to ms
+  final durationMs = (sampleCount * 1000) ~/ sampleRate;
+  return durationMs;
+}
+
 // Provider for preloaded test files (ready to use)
 final dictationFilesProvider = FutureProvider<AudioTestFiles>((ref) async {
-  final testFiles = AudioTestFiles();
+  final testFiles = AudioTestFiles(getFileDuration: assetWavDuration);
   await testFiles.loadDictationFiles(
       rootDir: 'assets/dictation_test/test_files/');
   return testFiles;
 });
 
 final transcriptionFilesProvider = FutureProvider<AudioTestFiles>((ref) async {
-  final testFiles = AudioTestFiles();
+  final testFiles = AudioTestFiles(getFileDuration: assetWavDuration);
   await testFiles.loadTranscriptionFiles();
   print('all files loaded');
   return testFiles;

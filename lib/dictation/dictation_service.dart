@@ -3,7 +3,8 @@ import 'dart:typed_data';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
 class DictationService {
-  final RollingCache _rollingCache = RollingCache();
+  DictationService(int cacheSize) : _rollingCache = RollingCache(cacheSize);
+  final RollingCache _rollingCache;
   final TranscriptCombiner _transcriptionCombiner =
       TranscriptCombiner(debug: true);
 

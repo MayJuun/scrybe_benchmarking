@@ -50,63 +50,66 @@ Future<List<AsrModel>> loadOfflineModels() async {
   try {
     final modelName = 'sherpa-onnx-moonshine-base-en-int8';
     models.add(OfflineRecognizerModel(
+        cacheSize: 25,
         config: OfflineRecognizerConfig.fromJson({
-      'model': {
-        'moonshine': {
-          'preprocessor': await copyAssetFile(modelName, 'preprocess.onnx'),
-          'encoder': await copyAssetFile(modelName, 'encode.int8.onnx'),
-          'uncachedDecoder':
-              await copyAssetFile(modelName, 'uncached_decode.int8.onnx'),
-          'cachedDecoder':
-              await copyAssetFile(modelName, 'cached_decode.int8.onnx')
-        },
-        'tokens': await copyAssetFile(modelName, 'tokens.txt'),
-        'modelType': 'moonshine',
-        'debug': true
-      }
-    })));
+          'model': {
+            'moonshine': {
+              'preprocessor': await copyAssetFile(modelName, 'preprocess.onnx'),
+              'encoder': await copyAssetFile(modelName, 'encode.int8.onnx'),
+              'uncachedDecoder':
+                  await copyAssetFile(modelName, 'uncached_decode.int8.onnx'),
+              'cachedDecoder':
+                  await copyAssetFile(modelName, 'cached_decode.int8.onnx')
+            },
+            'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+            'modelType': 'moonshine',
+            'debug': true
+          }
+        })));
   } catch (e) {
     print('Failed to load Moonshine model: $e');
   }
 
   // Nemo Fast Conformer Transducer
-  // try {
-  //   final modelName = 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500';
-  //   models.add(OfflineRecognizerModel(
-  //       config: OfflineRecognizerConfig.fromJson({
-  //     'model': {
-  //       'transducer': {
-  //         'encoder': await copyAssetFile(modelName, 'encoder.onnx'),
-  //         'decoder': await copyAssetFile(modelName, 'decoder.onnx'),
-  //         'joiner': await copyAssetFile(modelName, 'joiner.onnx'),
-  //       },
-  //       'tokens': await copyAssetFile(modelName, 'tokens.txt'),
-  //       'modelType': 'nemo_transducer',
-  //       'debug': true
-  //     }
-  //   })));
-  // } catch (e) {
-  //   print('Failed to load Nemo fast conformer transducer model: $e');
-  // }
+  try {
+    final modelName = 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500';
+    models.add(OfflineRecognizerModel(
+        cacheSize: 30,
+        config: OfflineRecognizerConfig.fromJson({
+          'model': {
+            'transducer': {
+              'encoder': await copyAssetFile(modelName, 'encoder.onnx'),
+              'decoder': await copyAssetFile(modelName, 'decoder.onnx'),
+              'joiner': await copyAssetFile(modelName, 'joiner.onnx'),
+            },
+            'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+            'modelType': 'nemo_transducer',
+            'debug': true
+          }
+        })));
+  } catch (e) {
+    print('Failed to load Nemo fast conformer transducer model: $e');
+  }
 
-  // try {
-  //   final modelName = 'sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000';
-  //   models.add(OfflineRecognizerModel(
-  //       config: OfflineRecognizerConfig.fromJson({
-  //     'model': {
-  //       'transducer': {
-  //         'encoder': await copyAssetFile(modelName, 'encoder.onnx'),
-  //         'decoder': await copyAssetFile(modelName, 'decoder.onnx'),
-  //         'joiner': await copyAssetFile(modelName, 'joiner.onnx'),
-  //       },
-  //       'tokens': await copyAssetFile(modelName, 'tokens.txt'),
-  //       'modelType': 'nemo_transducer',
-  //       'debug': true,
-  //     }
-  //   })));
-  // } catch (e) {
-  //   print('Failed to load Nemo fast conformer transducer model: $e');
-  // }
+  try {
+    final modelName = 'sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000';
+    models.add(OfflineRecognizerModel(
+        cacheSize: 20,
+        config: OfflineRecognizerConfig.fromJson({
+          'model': {
+            'transducer': {
+              'encoder': await copyAssetFile(modelName, 'encoder.onnx'),
+              'decoder': await copyAssetFile(modelName, 'decoder.onnx'),
+              'joiner': await copyAssetFile(modelName, 'joiner.onnx'),
+            },
+            'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+            'modelType': 'nemo_transducer',
+            'debug': true,
+          }
+        })));
+  } catch (e) {
+    print('Failed to load Nemo fast conformer transducer model: $e');
+  }
 
   return models;
 }
