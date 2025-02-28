@@ -12,8 +12,9 @@ class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
     required this.ref,
     required this.model,
     this.sampleRate = 16000,
+    DictationState? state,
   })  : service = DictationService(),
-        super(const DictationState() as T);
+        super((state ?? const DictationState()) as T);
 
   final Ref ref;
   final AsrModel model;

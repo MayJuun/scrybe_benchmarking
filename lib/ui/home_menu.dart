@@ -35,16 +35,26 @@ class HomeMenuScreen extends ConsumerWidget {
               // Dictation Benchmarks (simulate streaming)
               ElevatedButton(
                 onPressed: () async {
-                  ref.read(dictationFilesProvider).whenData((data) {
+                  try {
+                    // Wait for the data to be available
+                    final data = await ref.read(dictationFilesProvider.future);
                     if (context.mounted) {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => DictationBenchmarkScreen(
-                              models: models, testFiles: data),
+                            models: models,
+                            testFiles: data,
+                          ),
                         ),
                       );
                     }
-                  });
+                  } catch (e, s) {
+                    print('error: $e');
+                    print('stack: $s');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
                 },
                 child: const Text('Dictation Benchmarks'),
               ),

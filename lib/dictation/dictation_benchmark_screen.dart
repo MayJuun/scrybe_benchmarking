@@ -90,17 +90,15 @@ class _DictationBenchmarkScreenState
 
                 for (final model in widget.models) {
                   print('Running benchmark with model: ${model.modelName}');
-                  // Mark this as the selected model
                   ref.read(selectedModelProvider.notifier).state = model;
 
                   final notifier =
                       ref.read(dictationBenchmarkProvider(model).notifier);
-
+                  widget.testFiles.currentFileIndex = 0;
                   notifier.setTestFiles(widget.testFiles);
 
-                  // Start the dictation on the current model
                   await notifier.startDictation();
-                  // Once it completes, gather metrics
+
                   allMetrics.addAll(notifier.metrics);
                 }
 
