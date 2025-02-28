@@ -80,7 +80,7 @@ class _DictationBenchmarkScreenState
                 if (dictationState?.status == DictationStatus.recording) {
                   final notifier = ref.read(
                       dictationBenchmarkProvider(selectedModel!).notifier);
-                  notifier.stopDictation();
+                  notifier.stopDictation(fileRecorderProvider);
                   return;
                 }
 
@@ -96,7 +96,7 @@ class _DictationBenchmarkScreenState
                   final notifier =
                       ref.read(dictationBenchmarkProvider(model).notifier);
 
-                  await notifier.prepareForBenchmark();
+                  notifier.setTestFiles(widget.testFiles);
 
                   // Start the dictation on the current model
                   await notifier.startDictation();

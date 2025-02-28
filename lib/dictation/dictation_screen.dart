@@ -85,7 +85,7 @@ class _DictationScreenState extends ConsumerState<DictationScreen> {
                   if (selectedModel != null) {
                     ref
                         .read(dictationProvider(selectedModel).notifier)
-                        .stopDictation();
+                        .stopDictation(recorderProvider);
                   }
                   // Select new model
                   ref.read(selectedModelProvider.notifier).state =
@@ -113,7 +113,7 @@ class _DictationScreenState extends ConsumerState<DictationScreen> {
                       ref.read(dictationProvider(selectedModel).notifier);
 
                   if (dictationState?.status == DictationStatus.recording) {
-                    notifier.stopDictation();
+                    notifier.stopDictation(recorderProvider);
                   } else {
                     notifier.startDictation();
                   }

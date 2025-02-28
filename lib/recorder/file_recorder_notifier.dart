@@ -193,7 +193,7 @@ class FileRecorderNotifier extends BaseRecorderNotifier {
   }
 }
 
-final mockRecorderProvider =
+final fileRecorderProvider =
     StateNotifierProvider<FileRecorderNotifier, RecorderState>((ref) {
   return FileRecorderNotifier();
 });
