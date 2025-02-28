@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
-class DictationBenchmarkNotifier extends DictationNotifier {
+class DictationBenchmarkNotifier
+    extends DictationNotifier<DictationBenchmarkState> {
   DictationBenchmarkNotifier({
     required super.ref,
     required super.model,

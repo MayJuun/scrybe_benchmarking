@@ -10,6 +10,7 @@ class TranscriptionBenchmarkState {
   final double progress;
   final List<BenchmarkMetrics> metricsList;
   final int totalFiles;
+  final String modelName;
 
   const TranscriptionBenchmarkState({
     this.isTranscribing = false,
@@ -17,6 +18,7 @@ class TranscriptionBenchmarkState {
     this.progress = 0.0,
     this.metricsList = const [],
     this.totalFiles = 0,
+    this.modelName = '',
   });
 
   TranscriptionBenchmarkState copyWith({
@@ -25,6 +27,7 @@ class TranscriptionBenchmarkState {
     double? progress,
     List<BenchmarkMetrics>? metricsList,
     int? totalFiles,
+    String? modelName,
   }) {
     return TranscriptionBenchmarkState(
       isTranscribing: isTranscribing ?? this.isTranscribing,
@@ -32,6 +35,7 @@ class TranscriptionBenchmarkState {
       progress: progress ?? this.progress,
       metricsList: metricsList ?? this.metricsList,
       totalFiles: totalFiles ?? this.totalFiles,
+      modelName: modelName ?? this.modelName,
     );
   }
 }
@@ -60,6 +64,7 @@ class TranscriptionBenchmarkNotifier
     try {
       for (final model in models) {
         final offlineRecognizer = model.recognizer;
+        state = state.copyWith(modelName: model.modelName);
 
         for (int i = 0; i < testFiles.length; i++) {
           final audioFilePath = testFiles.allFiles[i]; // This is a string

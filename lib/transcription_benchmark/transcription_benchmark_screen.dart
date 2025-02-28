@@ -27,7 +27,9 @@ class _TranscriptionBenchmarkScreenState
     final notifier = ref.read(transcriptionBenchmarkNotifierProvider.notifier);
 
     final isRunning = state.isTranscribing;
-    final fileCount = state.totalFiles;
+    final fileCount = widget.testFiles.length;
+    final modelCount = widget.models.length;
+    final modelName = state.modelName;
 
     return Scaffold(
       appBar: AppBar(
@@ -38,11 +40,16 @@ class _TranscriptionBenchmarkScreenState
         child: Column(
           children: [
             Text('Found $fileCount test files'),
+            Text('Using $modelCount models'),
             const SizedBox(height: 16),
             if (isRunning) ...[
               Text('Current file: ${state.currentFile}'),
               LinearProgressIndicator(value: state.progress),
               const SizedBox(height: 16),
+              if (modelName.isNotEmpty) ...[
+                Text('Model: $modelName'),
+                const SizedBox(height: 16),
+              ],
               const Expanded(child: Center(child: Text('Transcribing...'))),
             ] else ...[
               ElevatedButton(
@@ -110,6 +117,7 @@ class _TranscriptionResultsList extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Recognized: ${metric.transcription}'),
+                    Text('Actual: ${metric.reference}'),
                     Text('Duration: ${metric.durationMs} ms'),
                     Text('RTF: ${metric.rtf.toStringAsFixed(2)}'),
                     Text(

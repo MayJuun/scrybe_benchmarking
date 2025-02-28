@@ -35,9 +35,9 @@ Future<List<AsrModel>> loadModels() async {
 
   // Group models by type:
   models.addAll(await loadOfflineModels());
-  // models.addAll(await loadOnlineModels());
+  models.addAll(await loadOnlineModels());
   // models.addAll(await loadKeywordSpotterModels());
-  // models.addAll(await loadWhisperModels());
+  models.addAll(await loadWhisperModels());
 
   return models;
 }
@@ -217,27 +217,6 @@ Future<List<AsrModel>> loadWhisperModels() async {
     })));
   } catch (e) {
     print('Failed to load whisper base model: $e');
-  }
-
-  // Distil Whisper model
-  try {
-    final modelName = 'sherpa-onnx-whisper-distil-medium.en';
-    models.add(OfflineRecognizerModel(
-        config: OfflineRecognizerConfig.fromJson({
-      'model': {
-        'whisper': {
-          'encoder': await copyAssetFile(
-              modelName, 'distil-medium.en-encoder.int8.onnx'),
-          'decoder': await copyAssetFile(
-              modelName, 'distil-medium.en-decoder.int8.onnx'),
-        },
-        'tokens': await copyAssetFile(modelName, 'distil-medium.en-tokens.txt'),
-        'modelType': 'whisper',
-        'debug': true
-      }
-    })));
-  } catch (e) {
-    print('Failed to load whisper distil model: $e');
   }
 
   // Turbo Whisper model

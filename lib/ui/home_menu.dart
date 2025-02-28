@@ -51,9 +51,13 @@ class HomeMenuScreen extends ConsumerWidget {
               const SizedBox(height: 24),
 
               // Transcription Benchmarks (full-file approach)
+
               ElevatedButton(
                 onPressed: () async {
-                  ref.read(transcriptionFilesProvider).whenData((data) {
+                  try {
+                    // Wait for the data to be available
+                    final data =
+                        await ref.read(transcriptionFilesProvider.future);
                     if (context.mounted) {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -66,7 +70,13 @@ class HomeMenuScreen extends ConsumerWidget {
                         ),
                       );
                     }
-                  });
+                  } catch (e, s) {
+                    print('error: $e');
+                    print('stack: $s');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
                 },
                 child: const Text('Transcription Benchmarks'),
               ),

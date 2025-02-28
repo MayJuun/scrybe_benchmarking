@@ -7,13 +7,13 @@ import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
 /// Uses an [AsrModel] to process audio from test WAV files, simulating
 /// real-life dictation (online) or doing batch decoding (offline).
-class DictationNotifier extends StateNotifier<DictationState> {
+class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
   DictationNotifier({
     required this.ref,
     required this.model,
     this.sampleRate = 16000,
   })  : service = DictationService(),
-        super(const DictationState());
+        super(const DictationState() as T);
 
   final Ref ref;
   final AsrModel model;
@@ -25,8 +25,8 @@ class DictationNotifier extends StateNotifier<DictationState> {
     if (state.status == DictationStatus.recording) return;
 
     try {
-      state =
-          state.copyWith(status: DictationStatus.recording, fullTranscript: '');
+      state = state.copyWith(
+          status: DictationStatus.recording, fullTranscript: '') as T;
       service.clearCache();
 
       final recorder = ref.read(recorderProvider.notifier);
@@ -52,7 +52,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
       state = state.copyWith(
         status: DictationStatus.error,
         errorMessage: 'Failed to start: $e',
-      );
+      ) as T;
       print('Error during dictation start: $e');
     }
   }
@@ -88,12 +88,12 @@ class DictationNotifier extends StateNotifier<DictationState> {
       state = state.copyWith(
         currentChunkText: transcriptionResult,
         fullTranscript: combinedText,
-      );
+      ) as T;
     } catch (e) {
       state = state.copyWith(
         status: DictationStatus.error,
         errorMessage: 'Error processing audio chunk: $e',
-      );
+      ) as T;
     }
   }
 
@@ -121,13 +121,13 @@ class DictationNotifier extends StateNotifier<DictationState> {
       await recorder.stopRecorder();
       service.clearCache();
 
-      state =
-          state.copyWith(status: DictationStatus.idle, currentChunkText: '');
+      state = state.copyWith(status: DictationStatus.idle, currentChunkText: '')
+          as T;
     } catch (e) {
       state = state.copyWith(
         status: DictationStatus.error,
         errorMessage: 'Stop error: $e',
-      );
+      ) as T;
     }
   }
 
@@ -140,7 +140,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
     state = state.copyWith(
       currentChunkText: newText,
       fullTranscript: updatedText,
-    );
+    ) as T;
   }
 }
 

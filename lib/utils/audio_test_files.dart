@@ -50,6 +50,8 @@ class AudioTestFiles {
     final curatedDir =
         Directory(p.join(Directory.current.path, 'assets', 'curated'));
 
+    print(!await curatedDir.exists());
+
     _testFiles.addAll(!await curatedDir.exists()
         ? []
         : curatedDir
@@ -129,5 +131,6 @@ final dictationFilesProvider = FutureProvider<AudioTestFiles>((ref) async {
 final transcriptionFilesProvider = FutureProvider<AudioTestFiles>((ref) async {
   final testFiles = AudioTestFiles();
   await testFiles.loadTranscriptionFiles();
+  print('all files loaded');
   return testFiles;
 });
