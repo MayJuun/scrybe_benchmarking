@@ -1,6 +1,9 @@
-export 'benchmarking/benchmarking.dart';
+export 'reporting/reporting.dart';
+export 'dictation/dictation.dart';
 export 'models/models.dart';
-export 'providers/providers.dart';
 export 'model_list.dart';
+export 'preprocessor/preprocessor.dart';
+export 'recorder/recorder.dart';
+export 'transcription_benchmark/transcription_benchmark.dart';
 export 'ui/ui.dart';
 export 'utils/utils.dart';

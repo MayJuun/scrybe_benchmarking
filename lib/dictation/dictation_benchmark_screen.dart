@@ -10,10 +10,12 @@ import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
 class DictationBenchmarkScreen extends ConsumerStatefulWidget {
   final List<AsrModel> models;
+  final AudioTestFiles testFiles;
 
   const DictationBenchmarkScreen({
     super.key,
     required this.models,
+    required this.testFiles,
   });
 
   @override
@@ -23,20 +25,6 @@ class DictationBenchmarkScreen extends ConsumerStatefulWidget {
 
 class _DictationBenchmarkScreenState
     extends ConsumerState<DictationBenchmarkScreen> {
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    // Dispose all models
-    for (var model in widget.models) {
-      model.dispose();
-    }
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     // The user picks one model in a provider, but we also run multiple if needed

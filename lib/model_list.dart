@@ -1,24 +1,32 @@
 // ignore_for_file: avoid_print
 
+import 'dart:io';
+
+import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart';
 
-/// Loads the Silero VAD model.
-Future<VoiceActivityDetector> loadSileroVad() async {
-  print('loading silero vad');
-  final sileroVadConfig = SileroVadModelConfig(
-    model: await copyAssetFile(null, 'silero_vad.onnx'),
-    threshold: 0.4, // Increase confidence threshold
-    minSilenceDuration: 0.5, // Longer silence detection
-    minSpeechDuration: 0.2, // Slightly longer min speech
-    maxSpeechDuration: 7.0,
-  );
-  final vadConfig = VadModelConfig(
-    sileroVad: sileroVadConfig,
-    numThreads: 1,
-    debug: true,
-  );
-  return VoiceActivityDetector(config: vadConfig, bufferSizeInSeconds: 15);
+Future<String> copyAssetFile(String? modelName, String file) async {
+  final Directory directory = await getApplicationDocumentsDirectory();
+  final target = modelName == null
+      ? p.join(directory.path, file)
+      : p.join(directory.path, modelName, file);
+  bool exists = await File(target).exists();
+  if (!exists) {
+    await File(target).create(recursive: true);
+  }
+  final data = modelName == null
+      ? await rootBundle.load(p.join('assets', 'models', file))
+      : await rootBundle.load(p.join('assets', 'models', modelName, file));
+  if (!exists || File(target).lengthSync() != data.lengthInBytes) {
+    final List<int> bytes =
+        data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    await File(target).writeAsBytes(bytes);
+  }
+
+  return target;
 }
 
 /// Loads all available offline ASR models (excluding punctuation).
@@ -38,53 +46,67 @@ Future<List<AsrModel>> loadModels() async {
 Future<List<AsrModel>> loadOfflineModels() async {
   final models = <AsrModel>[];
 
-  // Moonshine model (sherpa-onnx-moonshine-base-en-int8)
+  // Moonshine model
   try {
-    models.add(await OfflineRecognizerModel.createMoonshine(
-      modelName: 'sherpa-onnx-moonshine-base-en-int8',
-      preprocessor: 'preprocess.onnx',
-      encoder: 'encode.int8.onnx',
-      uncachedDecoder: 'uncached_decode.int8.onnx',
-      cachedDecoder: 'cached_decode.int8.onnx',
-      tokens: 'tokens.txt',
-      cacheSize: 6,
-    ));
+    final modelName = 'sherpa-onnx-moonshine-base-en-int8';
+    models.add(OfflineRecognizerModel(
+        config: OfflineRecognizerConfig.fromJson({
+      'model': {
+        'moonshine': {
+          'preprocessor': await copyAssetFile(modelName, 'preprocess.onnx'),
+          'encoder': await copyAssetFile(modelName, 'encode.int8.onnx'),
+          'uncachedDecoder':
+              await copyAssetFile(modelName, 'uncached_decode.int8.onnx'),
+          'cachedDecoder':
+              await copyAssetFile(modelName, 'cached_decode.int8.onnx')
+        },
+        'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+        'modelType': 'moonshine',
+        'debug': true
+      }
+    })));
   } catch (e) {
     print('Failed to load Moonshine model: $e');
   }
 
-  // Nemo Fast Conformer Transducer (sherpa-onnx-nemo-fast-conformer-transducer-en-24500)
+  // Nemo Fast Conformer Transducer
   try {
-    models.add(await OfflineRecognizerModel.createTransducer(
-      modelName: 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500',
-      encoder: 'encoder.onnx',
-      decoder: 'decoder.onnx',
-      joiner: 'joiner.onnx',
-      tokens: 'tokens.txt',
-      numThreads: 1,
-      modelType: 'nemo_transducer',
-      debug: true,
-      cacheSize: 6,
-    ));
+    final modelName = 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500';
+    models.add(OfflineRecognizerModel(
+        config: OfflineRecognizerConfig.fromJson({
+      'model': {
+        'transducer': {
+          'encoder': await copyAssetFile(modelName, 'encoder.onnx'),
+          'decoder': await copyAssetFile(modelName, 'decoder.onnx'),
+          'joiner': await copyAssetFile(modelName, 'joiner.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+        'modelType': 'nemo_transducer',
+        'debug': true
+      }
+    })));
   } catch (e) {
     print('Failed to load Nemo fast conformer transducer model: $e');
   }
 
-  // try {
-  //   models.add(await OfflineRecognizerModel.createTransducer(
-  //     modelName: 'sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000',
-  //     encoder: 'encoder.onnx',
-  //     decoder: 'decoder.onnx',
-  //     joiner: 'joiner.onnx',
-  //     tokens: 'tokens.txt',
-  //     numThreads: 1,
-  //     modelType: 'nemo_transducer',
-  //     debug: true,
-  //     cacheSize: 6,
-  //   ));
-  // } catch (e) {
-  //   print('Failed to load Nemo fast conformer transducer model: $e');
-  // }
+  try {
+    final modelName = 'sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000';
+    models.add(OfflineRecognizerModel(
+        config: OfflineRecognizerConfig.fromJson({
+      'model': {
+        'transducer': {
+          'encoder': await copyAssetFile(modelName, 'encoder.onnx'),
+          'decoder': await copyAssetFile(modelName, 'decoder.onnx'),
+          'joiner': await copyAssetFile(modelName, 'joiner.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+        'modelType': 'nemo_transducer',
+        'debug': true,
+      }
+    })));
+  } catch (e) {
+    print('Failed to load Nemo fast conformer transducer model: $e');
+  }
 
   return models;
 }
@@ -95,15 +117,21 @@ Future<List<AsrModel>> loadOnlineModels() async {
 
   // Nemo Streaming Fast Conformer Transducer (1040ms)
   try {
-    models.add(await OnlineRecognizerModel.createTransducer(
-      modelName:
-          'sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms',
-      encoder: 'encoder.onnx',
-      decoder: 'decoder.onnx',
-      joiner: 'joiner.onnx',
-      tokens: 'tokens.txt',
-      modelType: 'conformer',
-    ));
+    final modelName =
+        'sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms';
+    models.add(OnlineRecognizerModel(
+        config: OnlineRecognizerConfig.fromJson({
+      'model': {
+        'transducer': {
+          'encoder': await copyAssetFile(modelName, 'encoder.onnx'),
+          'decoder': await copyAssetFile(modelName, 'decoder.onnx'),
+          'joiner': await copyAssetFile(modelName, 'joiner.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+        'modelType': 'conformer',
+        'debug': true
+      }
+    })));
   } catch (e) {
     print(
         'Failed to load Nemo streaming fast conformer transducer (1040ms) model: $e');
@@ -118,15 +146,26 @@ Future<List<AsrModel>> loadKeywordSpotterModels() async {
 
   // sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01
   try {
-    models.add(await KeywordSpotterModel.createTransducer(
-      modelName: 'sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01',
-      encoder: 'encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx',
-      decoder: 'decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx',
-      joiner: 'joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx',
-      tokens: 'tokens.txt',
-      bpeVocab: 'bpe.model',
-      keywordsFile: 'keywords.txt',
-    ));
+    final modelName = 'sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01';
+    models.add(KeywordSpotterModel(
+        config: KeywordSpotterConfig.fromJson({
+      'model': {
+        'transducer': {
+          'encoder': await copyAssetFile(
+              modelName, 'encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx'),
+          'decoder': await copyAssetFile(
+              modelName, 'decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx'),
+          'joiner': await copyAssetFile(
+              modelName, 'joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+        'modelType': 'transducer',
+        'modelingUnit': 'bpe',
+        'bpeVocab': await copyAssetFile(modelName, 'bpe.model'),
+        'debug': true
+      },
+      'keywordsFile': await copyAssetFile(modelName, 'keywords.txt')
+    })));
   } catch (e) {
     print('Failed to load keyword spotter model: $e');
   }
@@ -134,65 +173,108 @@ Future<List<AsrModel>> loadKeywordSpotterModels() async {
   return models;
 }
 
-/// ************************************************************
-/// Whisper Models
-/// ************************************************************
-
-/// Helper to load a Whisper model.
-Future<AsrModel?> loadWhisperModel({
-  required String modelName,
-  required String encoder,
-  required String decoder,
-  required String tokens,
-}) async {
-  try {
-    return await OfflineRecognizerModel.createWhisper(
-      modelName: modelName,
-      encoder: encoder,
-      decoder: decoder,
-      tokens: tokens,
-    );
-  } catch (e) {
-    print('Failed to load $modelName: $e');
-    return null;
-  }
-}
-
 /// Loads all available Whisper models.
 Future<List<AsrModel>> loadWhisperModels() async {
   final models = <AsrModel>[];
 
-  final small = await loadWhisperModel(
-    modelName: 'sherpa-onnx-whisper-small.en.int8',
-    encoder: 'small.en-encoder.int8.onnx',
-    decoder: 'small.en-decoder.int8.onnx',
-    tokens: 'small.en-tokens.txt',
-  );
-  if (small != null) models.add(small);
+  // Small Whisper model
+  try {
+    final modelName = 'sherpa-onnx-whisper-small.en.int8';
+    models.add(OfflineRecognizerModel(
+        config: OfflineRecognizerConfig.fromJson({
+      'model': {
+        'whisper': {
+          'encoder':
+              await copyAssetFile(modelName, 'small.en-encoder.int8.onnx'),
+          'decoder':
+              await copyAssetFile(modelName, 'small.en-decoder.int8.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'small.en-tokens.txt'),
+        'modelType': 'whisper',
+        'debug': true
+      }
+    })));
+  } catch (e) {
+    print('Failed to load whisper small model: $e');
+  }
 
-  final base = await loadWhisperModel(
-    modelName: 'sherpa-onnx-whisper-base.en',
-    encoder: 'base.en-encoder.int8.onnx',
-    decoder: 'base.en-decoder.int8.onnx',
-    tokens: 'base.en-tokens.txt',
-  );
-  if (base != null) models.add(base);
+  // Base Whisper model
+  try {
+    final modelName = 'sherpa-onnx-whisper-base.en';
+    models.add(OfflineRecognizerModel(
+        config: OfflineRecognizerConfig.fromJson({
+      'model': {
+        'whisper': {
+          'encoder':
+              await copyAssetFile(modelName, 'base.en-encoder.int8.onnx'),
+          'decoder':
+              await copyAssetFile(modelName, 'base.en-decoder.int8.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'base.en-tokens.txt'),
+        'modelType': 'whisper',
+        'debug': true
+      }
+    })));
+  } catch (e) {
+    print('Failed to load whisper base model: $e');
+  }
 
-  final distil = await loadWhisperModel(
-    modelName: 'sherpa-onnx-whisper-distil-medium.en',
-    encoder: 'distil-medium.en-encoder.int8.onnx',
-    decoder: 'distil-medium.en-decoder.int8.onnx',
-    tokens: 'distil-medium.en-tokens.txt',
-  );
-  if (distil != null) models.add(distil);
+  // Distil Whisper model
+  try {
+    final modelName = 'sherpa-onnx-whisper-distil-medium.en';
+    models.add(OfflineRecognizerModel(
+        config: OfflineRecognizerConfig.fromJson({
+      'model': {
+        'whisper': {
+          'encoder': await copyAssetFile(
+              modelName, 'distil-medium.en-encoder.int8.onnx'),
+          'decoder': await copyAssetFile(
+              modelName, 'distil-medium.en-decoder.int8.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'distil-medium.en-tokens.txt'),
+        'modelType': 'whisper',
+        'debug': true
+      }
+    })));
+  } catch (e) {
+    print('Failed to load whisper distil model: $e');
+  }
 
-  final turbo = await loadWhisperModel(
-    modelName: 'sherpa-onnx-whisper-turbo',
-    encoder: 'turbo-encoder.int8.onnx',
-    decoder: 'turbo-decoder.int8.onnx',
-    tokens: 'turbo-tokens.txt',
-  );
-  if (turbo != null) models.add(turbo);
+  // Turbo Whisper model
+  try {
+    final modelName = 'sherpa-onnx-whisper-turbo';
+    models.add(OfflineRecognizerModel(
+        config: OfflineRecognizerConfig.fromJson({
+      'model': {
+        'whisper': {
+          'encoder': await copyAssetFile(modelName, 'turbo-encoder.int8.onnx'),
+          'decoder': await copyAssetFile(modelName, 'turbo-decoder.int8.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'turbo-tokens.txt'),
+        'modelType': 'whisper',
+        'debug': true
+      }
+    })));
+  } catch (e) {
+    print('Failed to load whisper turbo model: $e');
+  }
 
   return models;
 }
+
+/// Loads the Silero VAD model.
+Future<VoiceActivityDetector> loadSileroVad() async => VoiceActivityDetector(
+    config: VadModelConfig.fromJson(
+      {
+        'sileroVad': {
+          'model': await copyAssetFile(null, 'silero_vad.onnx'),
+          'threshold': 0.4,
+          'minSilenceDuration': 0.5,
+          'minSpeechDuration': 0.2,
+          'maxSpeechDuration': 7.0,
+        },
+        'numThreads': 1,
+        'debug': true,
+      },
+    ),
+    bufferSizeInSeconds: 15);

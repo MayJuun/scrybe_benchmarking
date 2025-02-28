@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
-class MockRecorderNotifier extends RecorderNotifier {
+class FileRecorderNotifier extends BaseRecorderNotifier {
   String? _audioFilePath;
   Uint8List? _audioData;
   Timer? _audioTimer;
@@ -14,8 +14,6 @@ class MockRecorderNotifier extends RecorderNotifier {
   final Duration frameInterval =
       const Duration(milliseconds: 30); // Standard frame size
   int? _durationMs;
-
-  MockRecorderNotifier();
 
   Future<void> setAudioFile(String path, {int sampleRate = 16000}) async {
     // Cancel any ongoing operations
@@ -196,6 +194,6 @@ class MockRecorderNotifier extends RecorderNotifier {
 }
 
 final mockRecorderProvider =
-    StateNotifierProvider<MockRecorderNotifier, RecorderState>((ref) {
-  return MockRecorderNotifier();
+    StateNotifierProvider<FileRecorderNotifier, RecorderState>((ref) {
+  return FileRecorderNotifier();
 });

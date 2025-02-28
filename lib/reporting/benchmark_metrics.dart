@@ -32,7 +32,7 @@ class BenchmarkMetrics {
     required String transcription,
     required String reference,
     required Duration processingDuration,
-    required int audioLengthMs, // <--- we pass this in now
+    required int audioLengthMs,
   }) {
     // Calculate WER stats
     final werStats = WerCalculator.getDetailedStats(reference, transcription);

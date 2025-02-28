@@ -5,11 +5,13 @@ import 'package:path/path.dart' as p;
 
 /// This screen decodes entire `.wav` files at once (no chunking).
 class TranscriptionBenchmarkScreen extends ConsumerStatefulWidget {
-  final List<OfflineRecognizerModel> offlineRecognizerModels;
+  final List<OfflineRecognizerModel> models;
+  final AudioTestFiles testFiles;
 
   const TranscriptionBenchmarkScreen({
     super.key,
-    required this.offlineRecognizerModels,
+    required this.models,
+    required this.testFiles,
   });
 
   @override
@@ -20,19 +22,12 @@ class TranscriptionBenchmarkScreen extends ConsumerStatefulWidget {
 class _TranscriptionBenchmarkScreenState
     extends ConsumerState<TranscriptionBenchmarkScreen> {
   @override
-  void initState() {
-    super.initState();
-    // If needed, load test files automatically:
-    ref.read(transcriptionBenchmarkNotifierProvider.notifier).loadTestFiles();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final state = ref.watch(transcriptionBenchmarkNotifierProvider);
     final notifier = ref.read(transcriptionBenchmarkNotifierProvider.notifier);
 
     final isRunning = state.isTranscribing;
-    final fileCount = state.testFiles.length;
+    final fileCount = state.totalFiles;
 
     return Scaffold(
       appBar: AppBar(
@@ -55,8 +50,8 @@ class _TranscriptionBenchmarkScreenState
                     ? null
                     : () {
                         notifier.runTranscriptionBenchmark(
-                          offlineRecognizerModels:
-                              widget.offlineRecognizerModels,
+                          models: widget.models,
+                          testFiles: widget.testFiles,
                         );
                       },
                 child: const Text('Start Benchmark'),

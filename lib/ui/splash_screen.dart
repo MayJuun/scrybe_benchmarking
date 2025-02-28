@@ -7,10 +7,20 @@ class SplashScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final modelState = ref.watch(loadModelsNotifierProvider);
+    final modelState = ref.watch(modelsProvider);
 
-    if (modelState.isLoading) {
-      return const Scaffold(
+    return modelState.map(
+      data: (data) => HomeMenuScreen(data.value),
+      error: (error) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Error When Loading'),
+            Text(error.toString()),
+          ],
+        ),
+      ),
+      loading: (_) => const Scaffold(
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -21,21 +31,7 @@ class SplashScreen extends ConsumerWidget {
             ],
           ),
         ),
-      );
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => const HomeMenuScreen(),
-          ),
-        );
-      });
-
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
+      ),
+    );
   }
 }

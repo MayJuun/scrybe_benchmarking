@@ -48,7 +48,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
     required this.ref,
     required AsrModel model,
     this.sampleRate = 16000,
-    required TestFiles testFiles,
+    required AudioTestFiles testFiles,
   })  : _testFiles = testFiles,
         _model = model,
         super(const DictationState());
@@ -67,7 +67,7 @@ class DictationNotifier extends StateNotifier<DictationState> {
   Duration _accumulatedProcessingTime = Duration.zero;
 
   // Collect metrics from each file
-  final TestFiles _testFiles;
+  final AudioTestFiles _testFiles;
   final List<BenchmarkMetrics> _allMetrics = [];
   Completer<void>? _processingCompleter;
   final _transcriptionCombiner = TranscriptCombiner(
