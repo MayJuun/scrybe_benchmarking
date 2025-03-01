@@ -3,10 +3,10 @@ import 'dart:typed_data';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
 class DictationService {
-  DictationService(int cacheSize) : _rollingCache = RollingCache(cacheSize);
-  final RollingCache _rollingCache;
-  final TranscriptCombiner _transcriptionCombiner =
-      TranscriptCombiner(debug: true);
+  DictationService(int cacheSize) : rollingCache = RollingCache(cacheSize);
+  final RollingCache rollingCache;
+  // final TranscriptCombiner _transcriptionCombiner =
+  //     TranscriptCombiner(debug: true);
 
   // Process audio for an offline model
   String processOfflineAudio(
@@ -27,26 +27,26 @@ class DictationService {
   }
 
   // Combine transcripts
-  String combineTranscripts(String existingText, String newText) {
-    return _transcriptionCombiner.combineTranscripts(existingText, newText);
-  }
+  // String combineTranscripts(String existingText, String newText) {
+  //   return _transcriptionCombiner.combineTranscripts(existingText, newText);
+  // }
 
   // Reset the rolling cache
   void clearCache() {
-    _rollingCache.clear();
+    rollingCache.clear();
   }
 
   // Add audio to rolling cache
   void addToCache(Uint8List audioData) {
-    _rollingCache.addChunk(audioData);
+    rollingCache.addChunk(audioData);
   }
 
   // Get data from cache
   Uint8List getCacheData() {
-    return _rollingCache.getData();
+    return rollingCache.getData();
   }
 
-  bool isCacheEmpty() => _rollingCache.isEmpty;
+  bool isCacheEmpty() => rollingCache.isEmpty;
 
   // Reset online model - often needed for both regular and benchmark dictation
   void resetOnlineModel(AsrModel model) {
@@ -62,13 +62,14 @@ class DictationService {
 
     if (model is KeywordSpotterModel) {
       // For keyword spotters, append in a new line
-      return '${currentText}\n${newText.trim()}'.trim();
+      return '$currentText\n${newText.trim()}'.trim();
     } else if (model is OnlineRecognizerModel) {
       // For online models, they provide the full text, so replace
       return newText.trim();
     } else {
+      return '$currentText ${newText.trim()}'.trim();
       // For offline models, combine using the combiner
-      return combineTranscripts(currentText, newText);
+      // return combineTranscripts(currentText, newText);
     }
   }
 

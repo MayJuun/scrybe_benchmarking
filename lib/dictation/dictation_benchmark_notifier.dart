@@ -58,8 +58,7 @@ class DictationBenchmarkNotifier
 
       // Set up timer for offline models
       if (model is! OnlineModel) {
-        processingTimer =
-            Timer.periodic(const Duration(milliseconds: 500), (_) {
+        processingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
           if (!service.isCacheEmpty()) {
             _processCache();
           }
@@ -122,6 +121,7 @@ class DictationBenchmarkNotifier
         currentChunkText: transcriptionResult,
         fullTranscript: combinedText,
       );
+      service.clearCache();
     } catch (e) {
       state = state.copyWith(
         status: DictationStatus.error,
