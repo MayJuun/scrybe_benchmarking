@@ -160,7 +160,7 @@ class DictationBenchmarkNotifier
       try {
         transcriptionResult =
             service.processOfflineAudio(audioData, model, sampleRate);
-        service.clearCache();
+        service.resetCache();
       } catch (e) {
         if (e.toString().contains('invalid expand shape')) {
           print('Caught Whisper shape error, likely audio chunk too small');

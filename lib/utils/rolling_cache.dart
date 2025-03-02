@@ -2,10 +2,11 @@ import 'dart:typed_data';
 
 class RollingCache {
   final List<Uint8List> _chunks = [];
+  final List<Uint8List> _oldChunks = [];
   int _totalBytes = 0;
-  final int cacheSize;
+  int _totalOldBytes = 0;
 
-  RollingCache(this.cacheSize);
+  RollingCache();
 
   bool get isEmpty => _chunks.isEmpty;
   bool get isNotEmpty => _chunks.isNotEmpty;
@@ -14,20 +15,16 @@ class RollingCache {
   void addChunk(Uint8List chunk) {
     _chunks.add(chunk);
     _totalBytes += chunk.length;
-
-    // Keep a maximum that you set for normal usage (e.g., 20 seconds).
-    // Or you can let trimToLastMs do the final culling.
-    final maxBytes = 16000 * 2 * cacheSize;
-    while (_totalBytes > maxBytes && _chunks.isNotEmpty) {
-      final oldest = _chunks.removeAt(0);
-      _totalBytes -= oldest.length;
-    }
   }
 
   /// Returns all current audio data in one Uint8List
   Uint8List getData() {
-    final result = Uint8List(_totalBytes);
+    final result = Uint8List(_totalBytes + _totalOldBytes);
     int offset = 0;
+    for (final chunk in _oldChunks) {
+      result.setRange(offset, offset + chunk.length, chunk);
+      offset += chunk.length;
+    }
     for (final chunk in _chunks) {
       result.setRange(offset, offset + chunk.length, chunk);
       offset += chunk.length;
@@ -35,27 +32,39 @@ class RollingCache {
     return result;
   }
 
-  void clear() {
+  void reset() {
+    _oldChunks.clear();
+
+    // Calculate how many bytes we need for 0.5-1 second of audio
+    // Assuming 16-bit PCM at 16kHz, 1 second = 32000 bytes (16000 samples × 2 bytes)
+    final int bytesNeededForOverlap = 16000 * 2 * 1; // 1 second
+
+    // Transfer chunks from the end, just enough to cover our overlap target
+    int bytesToTransfer = 0;
+    List<Uint8List> chunksToTransfer = [];
+
+    // Start from the end and work backwards until we have enough for our overlap
+    for (int i = _chunks.length - 1; i >= 0; i--) {
+      chunksToTransfer.insert(0, _chunks[i]);
+      bytesToTransfer += _chunks[i].length;
+
+      if (bytesToTransfer >= bytesNeededForOverlap) {
+        break;
+      }
+    }
+
+    // Only transfer the chunks we need
+    _oldChunks.addAll(chunksToTransfer);
+    _totalOldBytes = bytesToTransfer;
+
     _chunks.clear();
     _totalBytes = 0;
   }
 
-  /// Keep only the last [ms] of audio
-  void trimToLastMs(int ms, int sampleRate) {
-    final bytesToKeep = sampleRate * 2 * ms ~/ 1000;
-    if (_totalBytes <= bytesToKeep) {
-      // We already have less than that. Nothing to do.
-      return;
-    }
-
-    // Combine all chunks into one array to simplify slicing
-    final combined = getData();
-    final startIndex = combined.length - bytesToKeep;
-    final tail = combined.sublist(startIndex); // last N ms worth of bytes
-
-    // Now reset and store only that tail
+  void clear() {
+    _oldChunks.clear();
+    _totalOldBytes = 0;
     _chunks.clear();
-    _chunks.add(tail);
-    _totalBytes = tail.length;
+    _totalBytes = 0;
   }
 }

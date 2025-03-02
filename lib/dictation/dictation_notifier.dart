@@ -14,27 +14,26 @@ class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
     required this.model,
     this.sampleRate = 16000,
     DictationState? state,
-  })  : service = DictationService(
-            model is OfflineRecognizerModel ? model.cacheSize : 20),
-        super((state ?? const DictationState()) as T);
+  }) : super((state ?? const DictationState()) as T);
 
   final Ref ref;
   final AsrModel model;
   final int sampleRate;
-  final DictationService service;
+  final DictationService service = DictationService();
   Timer? processingTimer;
   VoiceActivityDetector? vad;
   DateTime lastProcessingTime = DateTime.now();
   final minimumProcessingInterval = const Duration(seconds: 2);
 
   Future<void> startDictation() async {
+    vad ??= await loadSileroVad();
     if (state.status == DictationStatus.recording) return;
 
     try {
       state = state.copyWith(
           status: DictationStatus.recording, fullTranscript: '') as T;
       service.clearCache();
-
+      lastProcessingTime = DateTime.now();
       final recorder = ref.read(recorderProvider.notifier);
       await recorder.initialize(sampleRate: sampleRate);
       await recorder.startRecorder();
@@ -42,11 +41,13 @@ class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
 
       // Set up timer based on model type
       if (model is! OnlineModel) {
-        processingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-          if (!service.isCacheEmpty()) {
-            _processCache();
-          }
-        });
+        if (vad == null) {
+          processingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+            if (!service.isCacheEmpty()) {
+              _processCache();
+            }
+          });
+        }
       }
     } catch (e) {
       state = state.copyWith(
@@ -69,6 +70,36 @@ class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
       } else {
         // For offline models, add to cache
         service.addToCache(audioData);
+        if (vad != null) {
+          if (vad != null) {
+            // Convert audioData to Float32List as required by Silero VAD
+            // Assuming audioData is 16-bit PCM
+            final float32Data = model.convertBytesToFloat32(audioData);
+
+            // Feed audio to VAD
+            vad!.acceptWaveform(float32Data);
+            final now = DateTime.now();
+            final timeSinceLastProcessing = now.difference(lastProcessingTime);
+
+            // Check if VAD detected end of speech segment
+            if (vad!.isDetected() &&
+                timeSinceLastProcessing > minimumProcessingInterval &&
+                !service.isCacheEmpty()) {
+              // Process the cached audio when silence is detected
+              _processCache();
+
+              lastProcessingTime = now;
+
+              // Get any remaining speech segments from VAD
+              while (!vad!.isEmpty()) {
+                // We're not using the segments directly as we've already
+                // added all audio to the cache, but we need to clear
+                // the VAD buffer
+                vad!.pop();
+              }
+            }
+          }
+        }
       }
     } catch (e) {
       print('Error processing audio data chunk: $e');
@@ -77,9 +108,42 @@ class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
 
   void _processCache() {
     try {
-      final audioData = service.getCacheData();
-      final transcriptionResult =
-          service.processOfflineAudio(audioData, model, sampleRate);
+      var audioData = service.getCacheData();
+
+      // Check minimum audio length
+      final minBytes = 16000 * 2 * 2; // 1 second
+      if (audioData.length < minBytes) {
+        print('Audio chunk too short (${audioData.length} bytes), skipping');
+        return;
+      }
+
+      // Limit maximum audio length if needed
+      final maxBytes = 16000 * 2 * 10; // 10 seconds maximum
+      if (audioData.length > maxBytes) {
+        print(
+            'Audio chunk too large (${audioData.length} bytes), trimming to ${maxBytes} bytes');
+        audioData =
+            Uint8List.fromList(audioData.sublist(audioData.length - maxBytes));
+      }
+
+      String transcriptionResult;
+
+      try {
+        transcriptionResult =
+            service.processOfflineAudio(audioData, model, sampleRate);
+        service.resetCache();
+      } catch (e) {
+        if (e.toString().contains('invalid expand shape')) {
+          print('Caught Whisper shape error, likely audio chunk too small');
+          return; // Skip this chunk
+        }
+        rethrow; // Re-throw other errors
+      }
+
+      // Skip if empty result
+      if (transcriptionResult.trim().isEmpty) {
+        return;
+      }
 
       // Update transcript
       final combinedText = service.updateTranscriptByModelType(

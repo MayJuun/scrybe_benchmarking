@@ -6,10 +6,8 @@ import 'package:sherpa_onnx/sherpa_onnx.dart';
 
 class OfflineRecognizerModel extends AsrModel {
   final OfflineRecognizer recognizer;
-  final int cacheSize;
 
-  OfflineRecognizerModel(
-      {required OfflineRecognizerConfig config, this.cacheSize = 10})
+  OfflineRecognizerModel({required OfflineRecognizerConfig config})
       : recognizer = OfflineRecognizer(config),
         super(
             modelName:
