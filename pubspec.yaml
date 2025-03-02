@@ -50,19 +50,24 @@ flutter:
     # - assets/models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000/tokens.txt
 
     # sherpa-onnx-whisper-small.en.int8 (offline)
-    - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-decoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-encoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-tokens.txt
+    # - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-decoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-encoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-tokens.txt
 
     # sherpa-onnx-whisper-base.en (offline)
-    - assets/models/sherpa-onnx-whisper-base.en/base.en-decoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-base.en/base.en-encoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-base.en/base.en-tokens.txt
+    # - assets/models/sherpa-onnx-whisper-base.en/base.en-decoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-base.en/base.en-encoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-base.en/base.en-tokens.txt
+
+    # sherpa-onnx-whisper-tiny.en (offline)
+    - assets/models/sherpa-onnx-whisper-tiny.en/tiny.en-decoder.int8.onnx
+    - assets/models/sherpa-onnx-whisper-tiny.en/tiny.en-encoder.int8.onnx
+    - assets/models/sherpa-onnx-whisper-tiny.en/tiny.en-tokens.txt
 
     # sherpa-onnx-whisper-tiny (offline)
-    - assets/models/sherpa-onnx-whisper-tiny/tiny-decoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-tiny/tiny-encoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-tiny/tiny-tokens.txt
+    # - assets/models/sherpa-onnx-whisper-tiny/tiny-decoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-tiny/tiny-encoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-tiny/tiny-tokens.txt
 
     # sherpa-onnx-whisper-turbo (offline)
     # - assets/models/sherpa-onnx-whisper-turbo/turbo-decoder.int8.onnx

@@ -27,12 +27,27 @@ class _DictationBenchmarkScreenState
     extends ConsumerState<DictationBenchmarkScreen> {
   @override
   Widget build(BuildContext context) {
-    // The user picks one model in a provider, but we also run multiple if needed
+    // The selected model is watched from a provider
     final selectedModel = ref.watch(selectedModelProvider);
 
+    // The current dictation state if a model is selected
     final dictationState = selectedModel != null
         ? ref.watch(dictationBenchmarkProvider(selectedModel))
         : null;
+
+    // For displaying the model index out of total models
+    final modelIndex =
+        selectedModel == null ? 0 : (widget.models.indexOf(selectedModel) + 1);
+    final totalModels = widget.models.length;
+
+    // For displaying the file index out of total files
+    final fileIndex = widget.testFiles.currentFileIndex + 1;
+    final totalFiles = widget.testFiles.length;
+
+    // The current filename (just the basename if you want to hide the full path)
+    final currentFileName = widget.testFiles.isEmpty
+        ? ''
+        : p.basename(widget.testFiles.currentFile);
 
     return Scaffold(
       appBar: AppBar(
@@ -42,7 +57,31 @@ class _DictationBenchmarkScreenState
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Show recognized text so far (the final transcript or partial accumulation)
+            // -----------------------------------
+            // Display which model & which file
+            // -----------------------------------
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Show model index & name
+                Text(
+                  'Model $modelIndex of $totalModels'
+                  '${selectedModel != null ? ': ${selectedModel.modelName}' : ''}',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(width: 20),
+                // Show file index & name
+                Text(
+                  'File $fileIndex of $totalFiles'
+                  '${currentFileName.isNotEmpty ? ': $currentFileName' : ''}',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // Show recognized text so far (the final transcript)
             Expanded(
               child: SingleChildScrollView(
                 reverse: true,
@@ -53,7 +92,7 @@ class _DictationBenchmarkScreenState
             ),
             const SizedBox(height: 16),
 
-            // Show the current chunk/hypothesis text, if you want to see partial updates
+            // Show the current chunk/hypothesis text
             Expanded(
               child: SingleChildScrollView(
                 reverse: true,

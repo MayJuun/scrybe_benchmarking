@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
+import 'package:sherpa_onnx/sherpa_onnx.dart';
 
 /// Uses an [AsrModel] to process audio from test WAV files, simulating
 /// real-life dictation (online) or doing batch decoding (offline).
@@ -22,6 +23,9 @@ class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
   final int sampleRate;
   final DictationService service;
   Timer? processingTimer;
+  VoiceActivityDetector? vad;
+  DateTime lastProcessingTime = DateTime.now();
+  final minimumProcessingInterval = const Duration(seconds: 2);
 
   Future<void> startDictation() async {
     if (state.status == DictationStatus.recording) return;

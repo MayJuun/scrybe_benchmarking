@@ -34,6 +34,8 @@ class DictationBenchmarkNotifier
       );
       return;
     }
+    vad ??= await loadSileroVad();
+
     if (state.status == DictationStatus.recording) return;
 
     _processingCompleter ??= Completer<void>();
@@ -50,6 +52,7 @@ class DictationBenchmarkNotifier
           state.copyWith(status: DictationStatus.recording, fullTranscript: '');
       service.clearCache();
 
+      lastProcessingTime = DateTime.now();
       final recorder = ref.read(fileRecorderProvider.notifier);
       await recorder.setAudioFile(_testFiles!.currentFile);
       await recorder.initialize(sampleRate: sampleRate);
@@ -58,11 +61,13 @@ class DictationBenchmarkNotifier
 
       // Set up timer for offline models
       if (model is! OnlineModel) {
-        processingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-          if (!service.isCacheEmpty()) {
-            _processCache();
-          }
-        });
+        if (vad == null) {
+          processingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+            if (!service.isCacheEmpty()) {
+              _processCache();
+            }
+          });
+        }
       }
     } catch (e) {
       state = state.copyWith(
@@ -91,8 +96,37 @@ class DictationBenchmarkNotifier
         updateTranscript(result);
         return;
       } else {
-        // For offline models, just add to cache (timing handled in _processCache)
         service.addToCache(audioData);
+        if (vad != null) {
+          if (vad != null) {
+            // Convert audioData to Float32List as required by Silero VAD
+            // Assuming audioData is 16-bit PCM
+            final float32Data = model.convertBytesToFloat32(audioData);
+
+            // Feed audio to VAD
+            vad!.acceptWaveform(float32Data);
+            final now = DateTime.now();
+            final timeSinceLastProcessing = now.difference(lastProcessingTime);
+
+            // Check if VAD detected end of speech segment
+            if (vad!.isDetected() &&
+                timeSinceLastProcessing > minimumProcessingInterval &&
+                !service.isCacheEmpty()) {
+              // Process the cached audio when silence is detected
+              _processCache();
+
+              lastProcessingTime = now;
+
+              // Get any remaining speech segments from VAD
+              while (!vad!.isEmpty()) {
+                // We're not using the segments directly as we've already
+                // added all audio to the cache, but we need to clear
+                // the VAD buffer
+                vad!.pop();
+              }
+            }
+          }
+        }
       }
     } catch (e) {
       print('Error processing audio data chunk: $e');
@@ -101,27 +135,64 @@ class DictationBenchmarkNotifier
 
   void _processCache() {
     try {
-      final audioData = service.getCacheData();
+      var audioData = service.getCacheData();
+
+      // Check minimum audio length
+      final minBytes = 16000 * 2 * 1; // 1 second
+      if (audioData.length < minBytes) {
+        print('Audio chunk too short (${audioData.length} bytes), skipping');
+        return;
+      }
+
+      // Limit maximum audio length if needed
+      final maxBytes = 16000 * 2 * 10; // 10 seconds maximum
+      if (audioData.length > maxBytes) {
+        print(
+            'Audio chunk too large (${audioData.length} bytes), trimming to ${maxBytes} bytes');
+        audioData =
+            Uint8List.fromList(audioData.sublist(audioData.length - maxBytes));
+      }
 
       // Start timing for benchmark
       _processingStopwatch = Stopwatch()..start();
+      String transcriptionResult;
 
-      final transcriptionResult =
-          service.processOfflineAudio(audioData, model, sampleRate);
+      try {
+        transcriptionResult =
+            service.processOfflineAudio(audioData, model, sampleRate);
+      } catch (e) {
+        if (e.toString().contains('invalid expand shape')) {
+          print('Caught Whisper shape error, likely audio chunk too small');
+          return; // Skip this chunk
+        }
+        rethrow; // Re-throw other errors
+      }
+
+      // Skip if empty result
+      if (transcriptionResult.trim().isEmpty) {
+        return;
+      }
+
+      print('transcriptionResult: $transcriptionResult');
 
       // Stop timing and accumulate
       _processingStopwatch?.stop();
       _accumulatedProcessingTime +=
           _processingStopwatch?.elapsed ?? Duration.zero;
 
+      // Use TranscriptCombiner to combine the text
       final combinedText = service.updateTranscriptByModelType(
-          state.fullTranscript, transcriptionResult, model);
+        state.fullTranscript,
+        transcriptionResult,
+        model,
+      );
+
+      print('combinedText: $combinedText');
 
       state = state.copyWith(
         currentChunkText: transcriptionResult,
         fullTranscript: combinedText,
       );
-      service.clearCache();
     } catch (e) {
       state = state.copyWith(
         status: DictationStatus.error,

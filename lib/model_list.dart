@@ -181,64 +181,91 @@ Future<List<AsrModel>> loadWhisperModels() async {
   final models = <AsrModel>[];
   // Small Whisper model
   try {
-    final modelName = 'sherpa-onnx-whisper-tiny';
+    final modelName = 'sherpa-onnx-whisper-tiny.en';
     models.add(OfflineRecognizerModel(
+        cacheSize: 6,
         config: OfflineRecognizerConfig.fromJson({
-      'model': {
-        'whisper': {
-          'encoder': await copyAssetFile(modelName, 'tiny-encoder.int8.onnx'),
-          'decoder': await copyAssetFile(modelName, 'tiny-decoder.int8.onnx'),
-        },
-        'tokens': await copyAssetFile(modelName, 'tiny-tokens.txt'),
-        'modelType': 'whisper',
-        'debug': true
-      }
-    })));
+          'model': {
+            'whisper': {
+              'encoder':
+                  await copyAssetFile(modelName, 'tiny.en-encoder.int8.onnx'),
+              'decoder':
+                  await copyAssetFile(modelName, 'tiny.en-decoder.int8.onnx'),
+              'tailPaddings':
+                  4000, // Add this line to fix the "invalid expand shape" errors
+            },
+            'tokens': await copyAssetFile(modelName, 'tiny.en-tokens.txt'),
+            'modelType': 'whisper',
+            'debug': true
+          }
+        })));
   } catch (e) {
     print('Failed to load whisper small model: $e');
   }
 
   // Small Whisper model
-  try {
-    final modelName = 'sherpa-onnx-whisper-small.en.int8';
-    models.add(OfflineRecognizerModel(
-        config: OfflineRecognizerConfig.fromJson({
-      'model': {
-        'whisper': {
-          'encoder':
-              await copyAssetFile(modelName, 'small.en-encoder.int8.onnx'),
-          'decoder':
-              await copyAssetFile(modelName, 'small.en-decoder.int8.onnx'),
-        },
-        'tokens': await copyAssetFile(modelName, 'small.en-tokens.txt'),
-        'modelType': 'whisper',
-        'debug': true
-      }
-    })));
-  } catch (e) {
-    print('Failed to load whisper small model: $e');
-  }
+  // try {
+  //   final modelName = 'sherpa-onnx-whisper-tiny';
+  //   models.add(OfflineRecognizerModel(
+  //       cacheSize: 6,
+  //       config: OfflineRecognizerConfig.fromJson({
+  //         'model': {
+  //           'whisper': {
+  //             'encoder':
+  //                 await copyAssetFile(modelName, 'tiny-encoder.int8.onnx'),
+  //             'decoder':
+  //                 await copyAssetFile(modelName, 'tiny-decoder.int8.onnx'),
+  //           },
+  //           'tokens': await copyAssetFile(modelName, 'tiny-tokens.txt'),
+  //           'modelType': 'whisper',
+  //           'debug': true
+  //         }
+  //       })));
+  // } catch (e) {
+  //   print('Failed to load whisper small model: $e');
+  // }
+
+  // Small Whisper model
+  // try {
+  //   final modelName = 'sherpa-onnx-whisper-small.en.int8';
+  //   models.add(OfflineRecognizerModel(
+  //       config: OfflineRecognizerConfig.fromJson({
+  //     'model': {
+  //       'whisper': {
+  //         'encoder':
+  //             await copyAssetFile(modelName, 'small.en-encoder.int8.onnx'),
+  //         'decoder':
+  //             await copyAssetFile(modelName, 'small.en-decoder.int8.onnx'),
+  //       },
+  //       'tokens': await copyAssetFile(modelName, 'small.en-tokens.txt'),
+  //       'modelType': 'whisper',
+  //       'debug': true
+  //     }
+  //   })));
+  // } catch (e) {
+  //   print('Failed to load whisper small model: $e');
+  // }
 
   // Base Whisper model
-  try {
-    final modelName = 'sherpa-onnx-whisper-base.en';
-    models.add(OfflineRecognizerModel(
-        config: OfflineRecognizerConfig.fromJson({
-      'model': {
-        'whisper': {
-          'encoder':
-              await copyAssetFile(modelName, 'base.en-encoder.int8.onnx'),
-          'decoder':
-              await copyAssetFile(modelName, 'base.en-decoder.int8.onnx'),
-        },
-        'tokens': await copyAssetFile(modelName, 'base.en-tokens.txt'),
-        'modelType': 'whisper',
-        'debug': true
-      }
-    })));
-  } catch (e) {
-    print('Failed to load whisper base model: $e');
-  }
+  // try {
+  //   final modelName = 'sherpa-onnx-whisper-base.en';
+  //   models.add(OfflineRecognizerModel(
+  //       config: OfflineRecognizerConfig.fromJson({
+  //     'model': {
+  //       'whisper': {
+  //         'encoder':
+  //             await copyAssetFile(modelName, 'base.en-encoder.int8.onnx'),
+  //         'decoder':
+  //             await copyAssetFile(modelName, 'base.en-decoder.int8.onnx'),
+  //       },
+  //       'tokens': await copyAssetFile(modelName, 'base.en-tokens.txt'),
+  //       'modelType': 'whisper',
+  //       'debug': true
+  //     }
+  //   })));
+  // } catch (e) {
+  //   print('Failed to load whisper base model: $e');
+  // }
 
   // Turbo Whisper model
   // try {
@@ -270,7 +297,7 @@ Future<VoiceActivityDetector> loadSileroVad() async => VoiceActivityDetector(
           'model': await copyAssetFile(null, 'silero_vad.onnx'),
           'threshold': 0.4,
           'minSilenceDuration': 0.5,
-          'minSpeechDuration': 0.2,
+          'minSpeechDuration': 0.1,
           'maxSpeechDuration': 7.0,
         },
         'numThreads': 1,

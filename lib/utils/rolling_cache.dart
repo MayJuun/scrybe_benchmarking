@@ -15,38 +15,47 @@ class RollingCache {
     _chunks.add(chunk);
     _totalBytes += chunk.length;
 
-    // Limit cache to approximately 20 seconds (assuming 16kHz, 16-bit audio)
-    final maxBytes = 16000 * 2 * cacheSize; // 20 seconds of audio
+    // Keep a maximum that you set for normal usage (e.g., 20 seconds).
+    // Or you can let trimToLastMs do the final culling.
+    final maxBytes = 16000 * 2 * cacheSize;
     while (_totalBytes > maxBytes && _chunks.isNotEmpty) {
-      final oldestChunk = _chunks.removeAt(0);
-      _totalBytes -= oldestChunk.length;
+      final oldest = _chunks.removeAt(0);
+      _totalBytes -= oldest.length;
     }
   }
 
-  /// Get the current audio data in the cache as a single combined Uint8List
+  /// Returns all current audio data in one Uint8List
   Uint8List getData() {
     final result = Uint8List(_totalBytes);
     int offset = 0;
-    for (var chunk in _chunks) {
+    for (final chunk in _chunks) {
       result.setRange(offset, offset + chunk.length, chunk);
       offset += chunk.length;
     }
     return result;
   }
 
-  int getTotalBytes() {
-    return _totalBytes;
-  }
-
-  /// Calculate total duration in seconds based on sample rate
-  double getTotalDuration(int sampleRate) {
-    // Each sample is 2 bytes for 16-bit audio
-    return _totalBytes / (2 * sampleRate);
-  }
-
-  /// Clears the cache
   void clear() {
     _chunks.clear();
     _totalBytes = 0;
+  }
+
+  /// Keep only the last [ms] of audio
+  void trimToLastMs(int ms, int sampleRate) {
+    final bytesToKeep = sampleRate * 2 * ms ~/ 1000;
+    if (_totalBytes <= bytesToKeep) {
+      // We already have less than that. Nothing to do.
+      return;
+    }
+
+    // Combine all chunks into one array to simplify slicing
+    final combined = getData();
+    final startIndex = combined.length - bytesToKeep;
+    final tail = combined.sublist(startIndex); // last N ms worth of bytes
+
+    // Now reset and store only that tail
+    _chunks.clear();
+    _chunks.add(tail);
+    _totalBytes = tail.length;
   }
 }
