@@ -138,7 +138,7 @@ class DictationBenchmarkNotifier
       var audioData = service.getCacheData();
 
       // Check minimum audio length
-      final minBytes = 16000 * 2 * 1; // 1 second
+      final minBytes = 16000 * 2 * 2; // 1 second
       if (audioData.length < minBytes) {
         print('Audio chunk too short (${audioData.length} bytes), skipping');
         return;
@@ -160,6 +160,7 @@ class DictationBenchmarkNotifier
       try {
         transcriptionResult =
             service.processOfflineAudio(audioData, model, sampleRate);
+        service.clearCache();
       } catch (e) {
         if (e.toString().contains('invalid expand shape')) {
           print('Caught Whisper shape error, likely audio chunk too small');

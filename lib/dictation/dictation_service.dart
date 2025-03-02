@@ -70,8 +70,9 @@ class DictationService {
       // For online models, they provide the full text, so replace
       return newText.trim();
     } else {
+      return '$currentText $newText';
       // For offline models, use the transcript combiner
-      return combineTranscripts(currentText, newText);
+      // return combineTranscripts(currentText, newText);
     }
   }
 
