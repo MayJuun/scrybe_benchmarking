@@ -58,7 +58,7 @@ class TranscriptCombiner {
       return merged;
     } else {
       // No decent match, just join with a separator
-      return '$chunk1 [...] $chunk2';
+      return '$chunk1 $chunk2';
     }
   }
 
@@ -118,6 +118,7 @@ class TranscriptCombiner {
     final lower = text.toLowerCase();
     // Remove punctuation (except perhaps apostrophes, etc. adapt as needed)
     final noPunc = lower.replaceAll(RegExp(r'[^\w\s]+'), '');
+
     // Collapse multiple spaces
     return noPunc.replaceAll(RegExp(r'\s+'), ' ').trim();
   }

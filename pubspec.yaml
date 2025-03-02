@@ -31,33 +31,33 @@ flutter:
   uses-material-design: true
   assets:
     # sherpa-onnx-moonshine-base-en-int8 (offline)
-    # - assets/models/sherpa-onnx-moonshine-base-en-int8/cached_decode.int8.onnx
-    # - assets/models/sherpa-onnx-moonshine-base-en-int8/encode.int8.onnx
-    # - assets/models/sherpa-onnx-moonshine-base-en-int8/preprocess.onnx
-    # - assets/models/sherpa-onnx-moonshine-base-en-int8/tokens.txt
-    # - assets/models/sherpa-onnx-moonshine-base-en-int8/uncached_decode.int8.onnx
+    - assets/models/sherpa-onnx-moonshine-base-en-int8/cached_decode.int8.onnx
+    - assets/models/sherpa-onnx-moonshine-base-en-int8/encode.int8.onnx
+    - assets/models/sherpa-onnx-moonshine-base-en-int8/preprocess.onnx
+    - assets/models/sherpa-onnx-moonshine-base-en-int8/tokens.txt
+    - assets/models/sherpa-onnx-moonshine-base-en-int8/uncached_decode.int8.onnx
 
     # sherpa-onnx-nemo-fast-conformer-transducer-en-24500 (offline)
-    # - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/encoder.onnx
-    # - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/decoder.onnx
-    # - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/joiner.onnx
-    # - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/tokens.txt
+    - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/encoder.onnx
+    - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/decoder.onnx
+    - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/joiner.onnx
+    - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/tokens.txt
 
     # sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000 (offline)
-    # - assets/models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000/encoder.onnx
-    # - assets/models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000/decoder.onnx
-    # - assets/models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000/joiner.onnx
-    # - assets/models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000/tokens.txt
+    - assets/models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000/encoder.onnx
+    - assets/models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000/decoder.onnx
+    - assets/models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000/joiner.onnx
+    - assets/models/sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000/tokens.txt
 
     # sherpa-onnx-whisper-small.en.int8 (offline)
-    # - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-decoder.int8.onnx
-    # - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-encoder.int8.onnx
-    # - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-tokens.txt
+    - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-decoder.int8.onnx
+    - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-encoder.int8.onnx
+    - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-tokens.txt
 
     # sherpa-onnx-whisper-base.en (offline)
-    # - assets/models/sherpa-onnx-whisper-base.en/base.en-decoder.int8.onnx
-    # - assets/models/sherpa-onnx-whisper-base.en/base.en-encoder.int8.onnx
-    # - assets/models/sherpa-onnx-whisper-base.en/base.en-tokens.txt
+    - assets/models/sherpa-onnx-whisper-base.en/base.en-decoder.int8.onnx
+    - assets/models/sherpa-onnx-whisper-base.en/base.en-encoder.int8.onnx
+    - assets/models/sherpa-onnx-whisper-base.en/base.en-tokens.txt
 
     # sherpa-onnx-whisper-tiny.en (offline)
     - assets/models/sherpa-onnx-whisper-tiny.en/tiny.en-decoder.int8.onnx
@@ -75,10 +75,10 @@ flutter:
     # - assets/models/sherpa-onnx-whisper-turbo/turbo-tokens.txt
 
     # sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms (online)
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/encoder.onnx
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/decoder.onnx
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/joiner.onnx
-    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/tokens.txt
+    - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/encoder.onnx
+    - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/decoder.onnx
+    - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/joiner.onnx
+    - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/tokens.txt
 
     # sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01 (keyword spotting)
     # - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx
