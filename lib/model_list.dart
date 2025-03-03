@@ -265,23 +265,23 @@ Future<List<AsrModel>> loadWhisperModels() async {
   }
 
   // Turbo Whisper model
-  // try {
-  //   final modelName = 'sherpa-onnx-whisper-turbo';
-  //   models.add(OfflineRecognizerModel(
-  //       config: OfflineRecognizerConfig.fromJson({
-  //     'model': {
-  //       'whisper': {
-  //         'encoder': await copyAssetFile(modelName, 'turbo-encoder.int8.onnx'),
-  //         'decoder': await copyAssetFile(modelName, 'turbo-decoder.int8.onnx'),
-  //       },
-  //       'tokens': await copyAssetFile(modelName, 'turbo-tokens.txt'),
-  //       'modelType': 'whisper',
-  //       'debug': true
-  //     }
-  //   })));
-  // } catch (e) {
-  //   print('Failed to load whisper turbo model: $e');
-  // }
+  try {
+    final modelName = 'sherpa-onnx-whisper-turbo';
+    models.add(OfflineRecognizerModel(
+        config: OfflineRecognizerConfig.fromJson({
+      'model': {
+        'whisper': {
+          'encoder': await copyAssetFile(modelName, 'turbo-encoder.int8.onnx'),
+          'decoder': await copyAssetFile(modelName, 'turbo-decoder.int8.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'turbo-tokens.txt'),
+        'modelType': 'whisper',
+        'debug': true
+      }
+    })));
+  } catch (e) {
+    print('Failed to load whisper turbo model: $e');
+  }
 
   return models;
 }

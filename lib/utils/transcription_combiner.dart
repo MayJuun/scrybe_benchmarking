@@ -14,19 +14,21 @@ class TranscriptCombiner {
 
   /// Main entry point to combine two transcript chunks with a word-level overlap.
   String combineTranscripts(String chunk1, String chunk2) {
-    // Normalize text (lowercase, remove punctuation, trim, etc.)
-    final norm1 = _normalize(chunk1);
-    final norm2 = _normalize(chunk2);
+    // NORMALIZE BOTH CHUNKS FIRST
+    final normalized1 = normalize(chunk1);
+    final normalized2 = normalize(chunk2);
 
-    // Split into words
+    // We'll use the normalized chunks for everything from now on
+
+    // Split into words for overlap detection
     final words1 =
-        norm1.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+        normalized1.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     final words2 =
-        norm2.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+        normalized2.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
 
     // Edge cases
-    if (words1.isEmpty) return chunk2; // no overlap needed
-    if (words2.isEmpty) return chunk1;
+    if (words1.isEmpty) return normalized2; // no overlap needed
+    if (words2.isEmpty) return normalized1;
 
     double bestScore = 0.0;
     int bestOverlap = 0;
@@ -54,11 +56,12 @@ class TranscriptCombiner {
     // Decide if our best overlap is good enough
     if (bestScore >= similarityThreshold && bestOverlap > 0) {
       // We have a decent match, so merge without duplicating the overlap words
-      final merged = _mergeWithWordOverlap(chunk1, chunk2, bestOverlap);
+      final merged =
+          _mergeWithWordOverlap(normalized1, normalized2, bestOverlap);
       return merged;
     } else {
       // No decent match, just join with a separator
-      return '$chunk1 $chunk2';
+      return normalized1 + ' ' + normalized2;
     }
   }
 
@@ -69,9 +72,6 @@ class TranscriptCombiner {
     //  1) Convert chunk2 to words
     //  2) Skip overlapWords from the front
     //  3) Append to chunk1
-
-    // But we must be careful not to re-normalize chunk2 or we lose original punctuation
-    // So we'll do a naive approach: we find the word boundary in chunk2 after 'overlapWords' real words.
 
     // Count how many words we've seen, then note the index in chunk2's original text.
     final chunk2TrimIndex = _findWordBoundaryIndex(chunk2, overlapWords);
@@ -112,14 +112,22 @@ class TranscriptCombiner {
     return intersection / union;
   }
 
-  /// Normalize text: lower, remove punctuation, trim.
-  /// You can make this more or less aggressive depending on your ASR style.
-  String _normalize(String text) {
+  /// Normalize text: lowercase, preserve in-word punctuation (hyphens & apostrophes), and strip other non-word characters.
+  /// This is tailored for medical dictation where compound terms and contractions are important.
+  static String normalize(String text) {
+    // Convert to lowercase
     final lower = text.toLowerCase();
-    // Remove punctuation (except perhaps apostrophes, etc. adapt as needed)
-    final noPunc = lower.replaceAll(RegExp(r'[^\w\s]+'), '');
+
+    // Create a pattern that keeps alphanumeric chars, spaces, hyphens, and apostrophes
+    // but removes all other punctuation
+    final keepInWordPunctuation = lower.replaceAll(RegExp(r"[^\w\s\'-]+"), '');
+
+    // Remove any non-word characters (except hyphens, apostrophes, and spaces)
+    // This will catch any special characters that aren't already handled
+    final wordsOnly =
+        keepInWordPunctuation.replaceAll(RegExp(r"[^\w\s\'-]"), '');
 
     // Collapse multiple spaces
-    return noPunc.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return wordsOnly.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 }

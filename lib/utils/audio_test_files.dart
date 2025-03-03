@@ -50,10 +50,6 @@ class AudioTestFiles {
     final curatedDir =
         Directory(p.join(Directory.current.path, 'assets', 'curated'));
 
-    print('***************************************');
-    print(!await curatedDir.exists());
-    print('***************************************');
-
     _testFiles.addAll(!await curatedDir.exists()
         ? []
         : curatedDir
@@ -66,7 +62,6 @@ class AudioTestFiles {
   }
 
   Future<void> _afterFilesLoad(int sampleRate) async {
-    print('Loaded ${_testFiles.length} test files');
     // Load transcripts (SRT files) and measure audio durations
     for (final audioFile in _testFiles) {
       final srtFile = audioFile.replaceAll(fileExtension, '.srt');
@@ -86,11 +81,10 @@ class AudioTestFiles {
     }
 
     currentFileIndex = _testFiles.isEmpty ? -1 : 0;
-    print('Loaded ${_testFiles.length} test files with '
-        '${_referenceTranscripts.length} transcripts');
   }
 
-  /// Convert SRT text to a simple raw transcript.
+  /// Convert SRT text to a simple raw transcript and normalize it
+  /// using the same normalization as in TranscriptCombiner.
   String _stripSrt(String text) {
     final lines = text.split('\n');
     final sb = StringBuffer();
@@ -102,7 +96,36 @@ class AudioTestFiles {
       if (trimmed.contains('-->')) continue;
       sb.write('$trimmed ');
     }
-    return sb.toString().trim();
+
+    // Convert to a full string and then normalize
+    final fullText = sb.toString().trim();
+    return _normalizeText(fullText);
+  }
+
+  /// Normalize text: lowercase, preserve in-word punctuation (hyphens & apostrophes),
+  /// and strip other non-word characters.
+  /// This matches the normalization in TranscriptCombiner for consistent comparison.
+  String _normalizeText(String text) {
+    // Convert to lowercase
+    final lower = text.toLowerCase();
+
+    // Create a pattern that keeps alphanumeric chars, spaces, hyphens, and apostrophes
+    // but removes all other punctuation
+    final keepInWordPunctuation = lower.replaceAll(RegExp(r"[^\w\s\'-]+"), '');
+
+    // Remove any non-word characters (except hyphens, apostrophes, and spaces)
+    // This will catch any special characters that aren't already handled
+    final wordsOnly =
+        keepInWordPunctuation.replaceAll(RegExp(r"[^\w\s\'-]"), '');
+
+    // Collapse multiple spaces
+    return wordsOnly.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  /// Normalize any text using the same rules as reference transcripts
+  /// This should be called when comparing ASR output to references
+  String normalizeForComparison(String text) {
+    return _normalizeText(text);
   }
 
   bool get isEmpty => _testFiles.isEmpty;
@@ -155,6 +178,5 @@ final dictationFilesProvider = FutureProvider<AudioTestFiles>((ref) async {
 final transcriptionFilesProvider = FutureProvider<AudioTestFiles>((ref) async {
   final testFiles = AudioTestFiles(getFileDuration: assetWavDuration);
   await testFiles.loadTranscriptionFiles();
-  print('all files loaded');
   return testFiles;
 });

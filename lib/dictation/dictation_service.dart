@@ -20,7 +20,8 @@ class DictationService {
   String processOnlineAudio(
       Uint8List audioData, AsrModel model, int sampleRate) {
     if (model is OnlineModel) {
-      return model.processAudio(audioData, sampleRate);
+      return TranscriptCombiner.normalize(
+          model.processAudio(audioData, sampleRate));
     }
     return '';
   }
