@@ -199,3 +199,18 @@
 | sherpa-onnx-whisper-small.en.int8 | 26.99 | 332 | 165 | 1943 |
 | sherpa-onnx-whisper-tiny.en | 44.27 | 700 | 142 | 3171 |
 | sherpa-onnx-whisper-turbo | 29.17 | 312 | 179 | 2235 |
+
+## Run 17 (online - normalized text)
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | offline | 19.13 | 0.148 | 6743 |
+| sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000 | offline | 15.28 | 0.137 | 6186 |
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | online | 18.45 | 0.080 | 3445 |
+
+### Error Analysis by Model
+
+| Model | Avg WER% | Substitutions | Deletions | Insertions |
+|-------|----------|--------------|-----------|------------|
+| sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | 19.13 | 605 | 526 | 364 |
+| sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000 | 15.28 | 415 | 357 | 310 |
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | 18.45 | 872 | 637 | 274 |

@@ -74,6 +74,15 @@ print(model)
 ```
 
 ```python
+import kagglehub
+
+# Download latest version
+path = kagglehub.dataset_download("carlfm01/120h-spanish-speech")
+
+print("Path to dataset files:", path)
+```
+
+```python
 python process_asr_text_tokenizer.py \
     --manifest="/path/to/spanish_train_manifest.json" \
     --data_root="/path/to/output/tokenizer_dir" \

@@ -34,10 +34,10 @@ Future<List<AsrModel>> loadModels() async {
   final models = <AsrModel>[];
 
   // Group models by type:
-  // models.addAll(await loadOfflineModels());
-  // models.addAll(await loadOnlineModels());
+  models.addAll(await loadOfflineModels());
+  models.addAll(await loadOnlineModels());
   // models.addAll(await loadKeywordSpotterModels());
-  models.addAll(await loadWhisperModels());
+  // models.addAll(await loadWhisperModels());
 
   return models;
 }
