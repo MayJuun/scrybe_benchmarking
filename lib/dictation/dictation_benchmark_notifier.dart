@@ -89,7 +89,6 @@ class DictationBenchmarkNotifier
       if (model is OnlineModel) {
         _processingStopwatch = Stopwatch()..start();
         final result = service.processOnlineAudio(audioData, model, sampleRate);
-        print('result');
         _processingStopwatch?.stop();
         _accumulatedProcessingTime +=
             _processingStopwatch?.elapsed ?? Duration.zero;
@@ -138,7 +137,7 @@ class DictationBenchmarkNotifier
       var audioData = service.getCacheData();
 
       // Check minimum audio length
-      final minBytes = 16000 * 2 * 2; // 1 second
+      final minBytes = 16000 * 2 * 1; // 1 second
       if (audioData.length < minBytes) {
         print('Audio chunk too short (${audioData.length} bytes), skipping');
         return;
@@ -160,7 +159,6 @@ class DictationBenchmarkNotifier
       try {
         transcriptionResult =
             service.processOfflineAudio(audioData, model, sampleRate);
-        service.resetCache();
       } catch (e) {
         if (e.toString().contains('invalid expand shape')) {
           print('Caught Whisper shape error, likely audio chunk too small');
@@ -174,8 +172,6 @@ class DictationBenchmarkNotifier
         return;
       }
 
-      print('transcriptionResult: $transcriptionResult');
-
       // Stop timing and accumulate
       _processingStopwatch?.stop();
       _accumulatedProcessingTime +=
@@ -187,8 +183,6 @@ class DictationBenchmarkNotifier
         transcriptionResult,
         model,
       );
-
-      print('combinedText: $combinedText');
 
       state = state.copyWith(
         currentChunkText: transcriptionResult,
@@ -211,6 +205,7 @@ class DictationBenchmarkNotifier
       return;
     }
     await stopDictation(fileRecorderProvider);
+    print(state.fullTranscript);
 
     // Collect metrics
     if (_accumulatedProcessingTime.inMilliseconds > 0 &&

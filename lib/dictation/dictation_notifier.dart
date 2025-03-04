@@ -14,12 +14,14 @@ class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
     required this.model,
     this.sampleRate = 16000,
     DictationState? state,
-  }) : super((state ?? const DictationState()) as T);
+  })  : service = DictationService(
+            model is OfflineRecognizerModel ? model.cacheSize : 20),
+        super((state ?? const DictationState()) as T);
 
   final Ref ref;
   final AsrModel model;
   final int sampleRate;
-  final DictationService service = DictationService();
+  final DictationService service;
   Timer? processingTimer;
   VoiceActivityDetector? vad;
   DateTime lastProcessingTime = DateTime.now();
@@ -131,7 +133,7 @@ class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
       try {
         transcriptionResult =
             service.processOfflineAudio(audioData, model, sampleRate);
-        service.resetCache();
+        // service.resetCache();
       } catch (e) {
         if (e.toString().contains('invalid expand shape')) {
           print('Caught Whisper shape error, likely audio chunk too small');
@@ -197,13 +199,10 @@ class DictationNotifier<T extends DictationState> extends StateNotifier<T> {
 
   void updateTranscript(String newText) {
     if (newText.trim().isEmpty) return;
-    print('Updating transcript with: $newText');
-    print('Current transcript: ${state.fullTranscript}');
 
     final updatedText = service.updateTranscriptByModelType(
         state.fullTranscript, newText, model);
 
-    print('Updated transcript: $updatedText');
     state = state.copyWith(
       currentChunkText: newText,
       fullTranscript: updatedText,

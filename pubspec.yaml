@@ -30,13 +30,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    # sherpa-onnx-moonshine-base-en-int8 (offline)
-    - assets/models/sherpa-onnx-moonshine-base-en-int8/cached_decode.int8.onnx
-    - assets/models/sherpa-onnx-moonshine-base-en-int8/encode.int8.onnx
-    - assets/models/sherpa-onnx-moonshine-base-en-int8/preprocess.onnx
-    - assets/models/sherpa-onnx-moonshine-base-en-int8/tokens.txt
-    - assets/models/sherpa-onnx-moonshine-base-en-int8/uncached_decode.int8.onnx
-
     # sherpa-onnx-nemo-fast-conformer-transducer-en-24500 (offline)
     - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/encoder.onnx
     - assets/models/sherpa-onnx-nemo-fast-conformer-transducer-en-24500/decoder.onnx
@@ -54,25 +47,10 @@ flutter:
     - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-encoder.int8.onnx
     - assets/models/sherpa-onnx-whisper-small.en.int8/small.en-tokens.txt
 
-    # sherpa-onnx-whisper-base.en (offline)
-    - assets/models/sherpa-onnx-whisper-base.en/base.en-decoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-base.en/base.en-encoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-base.en/base.en-tokens.txt
-
-    # sherpa-onnx-whisper-tiny.en (offline)
-    - assets/models/sherpa-onnx-whisper-tiny.en/tiny.en-decoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-tiny.en/tiny.en-encoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-tiny.en/tiny.en-tokens.txt
-
-    # sherpa-onnx-whisper-tiny (offline)
-    # - assets/models/sherpa-onnx-whisper-tiny/tiny-decoder.int8.onnx
-    # - assets/models/sherpa-onnx-whisper-tiny/tiny-encoder.int8.onnx
-    # - assets/models/sherpa-onnx-whisper-tiny/tiny-tokens.txt
-
     # sherpa-onnx-whisper-turbo (offline)
-    - assets/models/sherpa-onnx-whisper-turbo/turbo-decoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-turbo/turbo-encoder.int8.onnx
-    - assets/models/sherpa-onnx-whisper-turbo/turbo-tokens.txt
+    # - assets/models/sherpa-onnx-whisper-turbo/turbo-decoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-turbo/turbo-encoder.int8.onnx
+    # - assets/models/sherpa-onnx-whisper-turbo/turbo-tokens.txt
 
     # sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms (online)
     - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/encoder.onnx
@@ -87,10 +65,6 @@ flutter:
     # - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/tokens.txt
     # - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/bpe.model
     # - assets/models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01/keywords.txt
-
-    # sherpa-onnx-online-punct-en-2024-08-06 (punctuation model)
-    # - assets/models/sherpa-onnx-online-punct-en-2024-08-06/model.onnx
-    # - assets/models/sherpa-onnx-online-punct-en-2024-08-06/bpe.vocab
 
     # VAD
     - assets/models/silero_vad.onnx

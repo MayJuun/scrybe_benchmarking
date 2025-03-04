@@ -60,23 +60,19 @@ class _DictationBenchmarkScreenState
             // -----------------------------------
             // Display which model & which file
             // -----------------------------------
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Show model index & name
-                Text(
-                  'Model $modelIndex of $totalModels'
-                  '${selectedModel != null ? ': ${selectedModel.modelName}' : ''}',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(width: 20),
-                // Show file index & name
-                Text(
-                  'File $fileIndex of $totalFiles'
-                  '${currentFileName.isNotEmpty ? ': $currentFileName' : ''}',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
+            Text(
+              'Model $modelIndex of $totalModels'
+              '${selectedModel != null ? ': ${selectedModel.modelName}' : ''}',
+              style: Theme.of(context).textTheme.titleMedium,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(width: 20),
+            // Show file index & name
+            Text(
+              'File $fileIndex of $totalFiles'
+              '${currentFileName.isNotEmpty ? ': $currentFileName' : ''}',
+              style: Theme.of(context).textTheme.titleMedium,
+              overflow: TextOverflow.ellipsis,
             ),
 
             const SizedBox(height: 16),

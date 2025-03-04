@@ -3,9 +3,9 @@ import 'dart:typed_data';
 import 'package:scrybe_benchmarking/scrybe_benchmarking.dart';
 
 class DictationService {
-  DictationService();
-  final RollingCache rollingCache = RollingCache();
-  final TranscriptCombiner _transcriptionCombiner = TranscriptCombiner();
+  DictationService(int cacheSize) : rollingCache = RollingCache(cacheSize);
+  final RollingCache rollingCache;
+  final TranscriptCombiner _transcriptCombiner = TranscriptCombiner();
 
   // Process audio for an offline model
   String processOfflineAudio(
@@ -28,15 +28,10 @@ class DictationService {
 
   // Combine transcripts
   String combineTranscripts(String existingText, String newText) {
-    return _transcriptionCombiner.combineTranscripts(existingText, newText);
+    return _transcriptCombiner.combine(existingText, newText);
   }
 
   // Reset the rolling cache
-  void resetCache() {
-    rollingCache.reset();
-  }
-
-  // Completely clear the rolling cache
   void clearCache() {
     rollingCache.clear();
   }
@@ -72,7 +67,6 @@ class DictationService {
       // For online models, they provide the full text, so replace
       return newText.trim();
     } else {
-      // return '$currentText $newText';
       // For offline models, use the transcript combiner
       return combineTranscripts(currentText, newText);
     }

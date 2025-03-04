@@ -5,10 +5,9 @@ I'm sure there are faster ways to do this, but this allowed me to test locally o
 ## Preferences to date
 - Best Streaming: sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms
 - Best Offline Live (tie): 
-    - sherpa-onnx-moonshine-base-en-int8
     - sherpa-onnx-nemo-fast-conformer-transducer-en-24500
+    - sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000
 - Best Offline Batch
-    - minimal: sherpa-onnx-whisper-base.en
     - best for mobile: sherpa-onnx-whisper-small.en.int8
     - (1 GB): sherpa-onnx-whisper-turbo
 
