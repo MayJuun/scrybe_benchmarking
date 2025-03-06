@@ -214,3 +214,21 @@
 | sherpa-onnx-nemo-fast-conformer-transducer-en-24500 | 19.13 | 605 | 526 | 364 |
 | sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000 | 15.28 | 415 | 357 | 310 |
 | sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | 18.45 | 872 | 637 | 274 |
+
+## Run 18 (online - normalized text)
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | online | 18.45 | 0.078 | 3394 |
+| sherpa-onnx-streaming-conformer-en-2023-05-09 | online | 27.56 | 0.126 | 5433 |
+| sherpa-onnx-streaming-zipformer-en-2023-02-21 | online | 25.14 | 0.097 | 4186 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-21 | online | 12.84 | 0.095 | 4108 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26 | online | 23.81 | 0.091 | 3943 |
+
+## Error Analysis by Model
+| Model | Avg WER% | Substitutions | Deletions | Insertions |
+|-------|----------|--------------|-----------|------------|
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | 18.45 | 872 | 637 | 274 |
+| sherpa-onnx-streaming-conformer-en-2023-05-09 | 27.56 | 2676 | 1616 | 861 |
+| sherpa-onnx-streaming-zipformer-en-2023-02-21 | 25.14 | 2655 | 1306 | 867 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-21 | 12.84 | 1173 | 506 | 623 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26 | 23.81 | 2565 | 1322 | 833 |

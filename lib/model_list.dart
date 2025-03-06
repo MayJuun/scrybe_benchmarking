@@ -94,7 +94,7 @@ Future<List<AsrModel>> loadOfflineModels() async {
 Future<List<AsrModel>> loadOnlineModels() async {
   final models = <AsrModel>[];
 
-  // Nemo Streaming Fast Conformer Transducer (1040ms)
+  // 1. Nemo Streaming Fast Conformer Transducer (1040ms)
   try {
     final modelName =
         'sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms';
@@ -114,6 +114,102 @@ Future<List<AsrModel>> loadOnlineModels() async {
   } catch (e) {
     print(
         'Failed to load Nemo streaming fast conformer transducer (1040ms) model: $e');
+  }
+
+  // 6. Streaming Zipformer (2023-06-21) - Regular
+  try {
+    final modelName = 'sherpa-onnx-streaming-zipformer-en-2023-06-21';
+    models.add(OnlineRecognizerModel(
+        config: OnlineRecognizerConfig.fromJson({
+      'model': {
+        'transducer': {
+          'encoder':
+              await copyAssetFile(modelName, 'encoder-epoch-99-avg-1.onnx'),
+          'decoder':
+              await copyAssetFile(modelName, 'decoder-epoch-99-avg-1.onnx'),
+          'joiner':
+              await copyAssetFile(modelName, 'joiner-epoch-99-avg-1.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+        'modelType': 'zipformer',
+        'debug': true
+      }
+    })));
+  } catch (e) {
+    print('Failed to load Streaming Zipformer (2023-06-21) model: $e');
+  }
+
+  // 7. Streaming Zipformer (2023-06-21) - Int8
+  try {
+    final modelName = 'sherpa-onnx-streaming-zipformer-en-2023-06-21';
+    models.add(OnlineRecognizerModel(
+        config: OnlineRecognizerConfig.fromJson({
+      'model': {
+        'transducer': {
+          'encoder': await copyAssetFile(
+              modelName, 'encoder-epoch-99-avg-1.int8.onnx'),
+          'decoder': await copyAssetFile(
+              modelName, 'decoder-epoch-99-avg-1.int8.onnx'),
+          'joiner':
+              await copyAssetFile(modelName, 'joiner-epoch-99-avg-1.int8.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+        'modelType': 'zipformer',
+        'debug': true
+      }
+    })));
+  } catch (e) {
+    print('Failed to load Streaming Zipformer (2023-06-21) Int8 model: $e');
+  }
+
+  // 8. Streaming Zipformer (2023-06-26) - Regular
+  try {
+    final modelName = 'sherpa-onnx-streaming-zipformer-en-2023-06-26';
+    models.add(OnlineRecognizerModel(
+        config: OnlineRecognizerConfig.fromJson({
+      'model': {
+        'transducer': {
+          'encoder': await copyAssetFile(
+              modelName, 'encoder-epoch-99-avg-1-chunk-16-left-128.onnx'),
+          'decoder': await copyAssetFile(
+              modelName, 'decoder-epoch-99-avg-1-chunk-16-left-128.onnx'),
+          'joiner': await copyAssetFile(
+              modelName, 'joiner-epoch-99-avg-1-chunk-16-left-128.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+        'modelType': 'zipformer2',
+        'modelingUnit': 'bpe',
+        'bpeVocab': await copyAssetFile(modelName, 'bpe.model'),
+        'debug': true
+      }
+    })));
+  } catch (e) {
+    print('Failed to load Streaming Zipformer (2023-06-26) model: $e');
+  }
+
+// 9. Streaming Zipformer (2023-06-26) - Int8
+  try {
+    final modelName = 'sherpa-onnx-streaming-zipformer-en-2023-06-26';
+    models.add(OnlineRecognizerModel(
+        config: OnlineRecognizerConfig.fromJson({
+      'model': {
+        'transducer': {
+          'encoder': await copyAssetFile(
+              modelName, 'encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx'),
+          'decoder': await copyAssetFile(
+              modelName, 'decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx'),
+          'joiner': await copyAssetFile(
+              modelName, 'joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+        'modelType': 'zipformer2', // Changed from 'zipformer' to 'zipformer2'
+        'modelingUnit': 'bpe',
+        'bpeVocab': await copyAssetFile(modelName, 'bpe.model'),
+        'debug': true
+      }
+    })));
+  } catch (e) {
+    print('Failed to load Streaming Zipformer (2023-06-26) Int8 model: $e');
   }
 
   return models;
