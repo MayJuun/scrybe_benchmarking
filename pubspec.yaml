@@ -49,31 +49,38 @@ flutter:
     # - assets/models/sherpa-onnx-whisper-turbo/turbo-encoder.int8.onnx
     # - assets/models/sherpa-onnx-whisper-turbo/turbo-tokens.txt
 
+    # sherpa-onnx-zipformer-gigaspeech-2023-12-12
+    - assets/models/sherpa-onnx-zipformer-gigaspeech-2023-12-12/encoder-epoch-30-avg-1.int8.onnx
+    - assets/models/sherpa-onnx-zipformer-gigaspeech-2023-12-12/decoder-epoch-30-avg-1.int8.onnx
+    - assets/models/sherpa-onnx-zipformer-gigaspeech-2023-12-12/joiner-epoch-30-avg-1.int8.onnx
+    - assets/models/sherpa-onnx-zipformer-gigaspeech-2023-12-12/tokens.txt
+
     # Online Models
     # 1. Nemo Streaming Fast Conformer Transducer
-    - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/encoder.onnx
-    - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/decoder.onnx
-    - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/joiner.onnx
-    - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/tokens.txt
+    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/encoder.onnx
+    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/decoder.onnx
+    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/joiner.onnx
+    # - assets/models/sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms/tokens.txt
 
-    # 2. Streaming Zipformer (2023-06-21) - Regular and Int8
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-21/encoder-epoch-99-avg-1.onnx
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-21/decoder-epoch-99-avg-1.onnx
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-21/joiner-epoch-99-avg-1.onnx
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-21/encoder-epoch-99-avg-1.int8.onnx
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-21/decoder-epoch-99-avg-1.int8.onnx
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-21/joiner-epoch-99-avg-1.int8.onnx
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-21/tokens.txt
+    # 2. Streaming Zipformer (2023-06-21) - Int8
+    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-21-int8/encoder-epoch-99-avg-1.int8.onnx
+    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-21-int8/decoder-epoch-99-avg-1.int8.onnx
+    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-21-int8/joiner-epoch-99-avg-1.int8.onnx
+    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-21-int8/tokens.txt
 
-    # 3. Streaming Zipformer (2023-06-26) - Regular and Int8
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26/encoder-epoch-99-avg-1-chunk-16-left-128.onnx
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26/decoder-epoch-99-avg-1-chunk-16-left-128.onnx
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26/joiner-epoch-99-avg-1-chunk-16-left-128.onnx
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26/tokens.txt
-    - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26/bpe.model
+    # 3. Streaming Zipformer (2023-06-26) - Int8
+    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26-int8/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
+    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26-int8/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx
+    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26-int8/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx
+    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26-int8/tokens.txt
+    # - assets/models/sherpa-onnx-streaming-zipformer-en-2023-06-26-int8/bpe.model
+
+    #4 sherpa-onnx-streaming-zipformer-ar_en_id_ja_ru_th_vi_zh-2025-02-10
+    # - assets/models/sherpa-onnx-streaming-zipformer-ar_en_id_ja_ru_th_vi_zh-2025-02-10/encoder-epoch-75-avg-11-chunk-16-left-128.int8.onnx
+    # - assets/models/sherpa-onnx-streaming-zipformer-ar_en_id_ja_ru_th_vi_zh-2025-02-10/decoder-epoch-75-avg-11-chunk-16-left-128.onnx
+    # - assets/models/sherpa-onnx-streaming-zipformer-ar_en_id_ja_ru_th_vi_zh-2025-02-10/joiner-epoch-75-avg-11-chunk-16-left-128.int8.onnx
+    # - assets/models/sherpa-onnx-streaming-zipformer-ar_en_id_ja_ru_th_vi_zh-2025-02-10/tokens.txt
+    # - assets/models/sherpa-onnx-streaming-zipformer-ar_en_id_ja_ru_th_vi_zh-2025-02-10/bpe.model
 
     # Keyword Spotting
     # 1. Gigaspeech Zipformer (2024-01-01) - Int8

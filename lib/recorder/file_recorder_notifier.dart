@@ -15,6 +15,19 @@ class FileRecorderNotifier extends BaseRecorderNotifier {
       const Duration(milliseconds: 30); // Standard frame size
   int? _durationMs;
 
+  // Add speed multiplier with a default of 1.0 (real-time)
+  double _speedMultiplier = 10.0;
+
+  // Method to set speed multiplier
+  void setSpeedMultiplier(double multiplier) {
+    if (multiplier <= 0) {
+      throw ArgumentError('Speed multiplier must be greater than 0');
+    }
+    _speedMultiplier = multiplier;
+  }
+
+  double get speedMultiplier => _speedMultiplier;
+
   Future<void> setAudioFile(String path, {int sampleRate = 16000}) async {
     // Cancel any ongoing operations
     await stopRecorder();
@@ -95,13 +108,20 @@ class FileRecorderNotifier extends BaseRecorderNotifier {
         // Calculate timing drift
         final now = DateTime.now();
         final actualInterval = now.difference(lastChunkTime);
+
+        // Calculate the target interval based on speed multiplier
+        final targetInterval = Duration(
+            microseconds:
+                (frameInterval.inMicroseconds / _speedMultiplier).round());
+
         final drift =
-            frameInterval.inMicroseconds - actualInterval.inMicroseconds;
+            targetInterval.inMicroseconds - actualInterval.inMicroseconds;
 
         if (drift.abs() > 1000) {
+          // Only adjust if drift is significant
           timer.cancel();
           _audioTimer = Timer.periodic(
-            frameInterval + Duration(microseconds: drift ~/ 2),
+            Duration(microseconds: targetInterval.inMicroseconds + drift ~/ 2),
             processChunk,
           );
         }
@@ -114,7 +134,12 @@ class FileRecorderNotifier extends BaseRecorderNotifier {
         lastChunkTime = now;
       }
 
-      _audioTimer = Timer.periodic(frameInterval, processChunk);
+      // Initial timer with the accelerated interval
+      final acceleratedInterval = Duration(
+          microseconds:
+              (frameInterval.inMicroseconds / _speedMultiplier).round());
+
+      _audioTimer = Timer.periodic(acceleratedInterval, processChunk);
 
       state =
           state.copyWith(status: RecorderStatus.streaming, isStreaming: true);

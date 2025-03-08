@@ -35,7 +35,7 @@ Future<List<AsrModel>> loadModels() async {
 
   // Group models by type:
   models.addAll(await loadOfflineModels());
-  models.addAll(await loadOnlineModels());
+  // models.addAll(await loadOnlineModels());
   // models.addAll(await loadKeywordSpotterModels());
   // models.addAll(await loadWhisperModels());
 
@@ -47,44 +47,67 @@ Future<List<AsrModel>> loadOfflineModels() async {
   final models = <AsrModel>[];
 
   // Nemo Fast Conformer Transducer
+  // try {
+  //   final modelName = 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500';
+  //   models.add(OfflineRecognizerModel(
+  //       cacheSize: 10,
+  //       config: OfflineRecognizerConfig.fromJson({
+  //         'model': {
+  //           'transducer': {
+  //             'encoder': await copyAssetFile(modelName, 'encoder.onnx'),
+  //             'decoder': await copyAssetFile(modelName, 'decoder.onnx'),
+  //             'joiner': await copyAssetFile(modelName, 'joiner.onnx'),
+  //           },
+  //           'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+  //           'modelType': 'nemo_transducer',
+  //           'debug': true
+  //         }
+  //       })));
+  // } catch (e) {
+  //   print('Failed to load Nemo fast conformer transducer model: $e');
+  // }
+
+  // try {
+  //   final modelName = 'sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000';
+  //   models.add(OfflineRecognizerModel(
+  //       cacheSize: 10,
+  //       config: OfflineRecognizerConfig.fromJson({
+  //         'model': {
+  //           'transducer': {
+  //             'encoder': await copyAssetFile(modelName, 'encoder.onnx'),
+  //             'decoder': await copyAssetFile(modelName, 'decoder.onnx'),
+  //             'joiner': await copyAssetFile(modelName, 'joiner.onnx'),
+  //           },
+  //           'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+  //           'modelType': 'nemo_transducer',
+  //           'debug': true,
+  //         }
+  //       })));
+  // } catch (e) {
+  //   print('Failed to load Nemo fast conformer transducer model: $e');
+  // }
+
   try {
-    final modelName = 'sherpa-onnx-nemo-fast-conformer-transducer-en-24500';
+    final modelName = 'sherpa-onnx-zipformer-gigaspeech-2023-12-12';
     models.add(OfflineRecognizerModel(
         cacheSize: 10,
         config: OfflineRecognizerConfig.fromJson({
           'model': {
             'transducer': {
-              'encoder': await copyAssetFile(modelName, 'encoder.onnx'),
-              'decoder': await copyAssetFile(modelName, 'decoder.onnx'),
-              'joiner': await copyAssetFile(modelName, 'joiner.onnx'),
+              'encoder': await copyAssetFile(
+                  modelName, 'encoder-epoch-30-avg-1.int8.onnx'),
+              'decoder': await copyAssetFile(
+                  modelName, 'decoder-epoch-30-avg-1.int8.onnx'),
+              'joiner': await copyAssetFile(
+                  modelName, 'joiner-epoch-30-avg-1.int8.onnx'),
             },
             'tokens': await copyAssetFile(modelName, 'tokens.txt'),
-            'modelType': 'nemo_transducer',
+            'modelType': 'zipformer',
             'debug': true
           }
         })));
   } catch (e) {
-    print('Failed to load Nemo fast conformer transducer model: $e');
-  }
-
-  try {
-    final modelName = 'sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000';
-    models.add(OfflineRecognizerModel(
-        cacheSize: 10,
-        config: OfflineRecognizerConfig.fromJson({
-          'model': {
-            'transducer': {
-              'encoder': await copyAssetFile(modelName, 'encoder.onnx'),
-              'decoder': await copyAssetFile(modelName, 'decoder.onnx'),
-              'joiner': await copyAssetFile(modelName, 'joiner.onnx'),
-            },
-            'tokens': await copyAssetFile(modelName, 'tokens.txt'),
-            'modelType': 'nemo_transducer',
-            'debug': true,
-          }
-        })));
-  } catch (e) {
-    print('Failed to load Nemo fast conformer transducer model: $e');
+    print('Failed to load Zipformer model: $e');
   }
 
   return models;
@@ -116,32 +139,9 @@ Future<List<AsrModel>> loadOnlineModels() async {
         'Failed to load Nemo streaming fast conformer transducer (1040ms) model: $e');
   }
 
-  // 6. Streaming Zipformer (2023-06-21) - Regular
+  // 2. Streaming Zipformer (2023-06-21) - Int8
   try {
-    final modelName = 'sherpa-onnx-streaming-zipformer-en-2023-06-21';
-    models.add(OnlineRecognizerModel(
-        config: OnlineRecognizerConfig.fromJson({
-      'model': {
-        'transducer': {
-          'encoder':
-              await copyAssetFile(modelName, 'encoder-epoch-99-avg-1.onnx'),
-          'decoder':
-              await copyAssetFile(modelName, 'decoder-epoch-99-avg-1.onnx'),
-          'joiner':
-              await copyAssetFile(modelName, 'joiner-epoch-99-avg-1.onnx'),
-        },
-        'tokens': await copyAssetFile(modelName, 'tokens.txt'),
-        'modelType': 'zipformer',
-        'debug': true
-      }
-    })));
-  } catch (e) {
-    print('Failed to load Streaming Zipformer (2023-06-21) model: $e');
-  }
-
-  // 7. Streaming Zipformer (2023-06-21) - Int8
-  try {
-    final modelName = 'sherpa-onnx-streaming-zipformer-en-2023-06-21';
+    final modelName = 'sherpa-onnx-streaming-zipformer-en-2023-06-21-int8';
     models.add(OnlineRecognizerModel(
         config: OnlineRecognizerConfig.fromJson({
       'model': {
@@ -162,34 +162,9 @@ Future<List<AsrModel>> loadOnlineModels() async {
     print('Failed to load Streaming Zipformer (2023-06-21) Int8 model: $e');
   }
 
-  // 8. Streaming Zipformer (2023-06-26) - Regular
+  // 3. Streaming Zipformer (2023-06-26) - Int8
   try {
-    final modelName = 'sherpa-onnx-streaming-zipformer-en-2023-06-26';
-    models.add(OnlineRecognizerModel(
-        config: OnlineRecognizerConfig.fromJson({
-      'model': {
-        'transducer': {
-          'encoder': await copyAssetFile(
-              modelName, 'encoder-epoch-99-avg-1-chunk-16-left-128.onnx'),
-          'decoder': await copyAssetFile(
-              modelName, 'decoder-epoch-99-avg-1-chunk-16-left-128.onnx'),
-          'joiner': await copyAssetFile(
-              modelName, 'joiner-epoch-99-avg-1-chunk-16-left-128.onnx'),
-        },
-        'tokens': await copyAssetFile(modelName, 'tokens.txt'),
-        'modelType': 'zipformer2',
-        'modelingUnit': 'bpe',
-        'bpeVocab': await copyAssetFile(modelName, 'bpe.model'),
-        'debug': true
-      }
-    })));
-  } catch (e) {
-    print('Failed to load Streaming Zipformer (2023-06-26) model: $e');
-  }
-
-// 9. Streaming Zipformer (2023-06-26) - Int8
-  try {
-    final modelName = 'sherpa-onnx-streaming-zipformer-en-2023-06-26';
+    final modelName = 'sherpa-onnx-streaming-zipformer-en-2023-06-26-int8';
     models.add(OnlineRecognizerModel(
         config: OnlineRecognizerConfig.fromJson({
       'model': {
@@ -200,6 +175,32 @@ Future<List<AsrModel>> loadOnlineModels() async {
               modelName, 'decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx'),
           'joiner': await copyAssetFile(
               modelName, 'joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx'),
+        },
+        'tokens': await copyAssetFile(modelName, 'tokens.txt'),
+        'modelType': 'zipformer2', // Changed from 'zipformer' to 'zipformer2'
+        'modelingUnit': 'bpe',
+        'bpeVocab': await copyAssetFile(modelName, 'bpe.model'),
+        'debug': true
+      }
+    })));
+  } catch (e) {
+    print('Failed to load Streaming Zipformer (2023-06-26) Int8 model: $e');
+  }
+
+  // 4. Streaming Zipformer (2025-02-10)
+  try {
+    final modelName =
+        'sherpa-onnx-streaming-zipformer-ar_en_id_ja_ru_th_vi_zh-2025-02-10';
+    models.add(OnlineRecognizerModel(
+        config: OnlineRecognizerConfig.fromJson({
+      'model': {
+        'transducer': {
+          'encoder': await copyAssetFile(
+              modelName, 'encoder-epoch-75-avg-11-chunk-16-left-128.int8.onnx'),
+          'decoder': await copyAssetFile(
+              modelName, 'decoder-epoch-75-avg-11-chunk-16-left-128.onnx'),
+          'joiner': await copyAssetFile(
+              modelName, 'joiner-epoch-75-avg-11-chunk-16-left-128.int8.onnx'),
         },
         'tokens': await copyAssetFile(modelName, 'tokens.txt'),
         'modelType': 'zipformer2', // Changed from 'zipformer' to 'zipformer2'

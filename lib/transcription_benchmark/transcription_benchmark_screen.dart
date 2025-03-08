@@ -43,7 +43,7 @@ class _TranscriptionBenchmarkScreenState
             Text('Using $modelCount models'),
             const SizedBox(height: 16),
             if (isRunning) ...[
-              Text('Current file: ${state.currentFile}'),
+              Text('Current file: ${state.currentFile} (${state.progress}%)'),
               LinearProgressIndicator(value: state.progress),
               const SizedBox(height: 16),
               if (modelName.isNotEmpty) ...[

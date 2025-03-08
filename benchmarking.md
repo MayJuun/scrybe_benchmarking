@@ -224,7 +224,7 @@
 | sherpa-onnx-streaming-zipformer-en-2023-06-21 | online | 12.84 | 0.095 | 4108 |
 | sherpa-onnx-streaming-zipformer-en-2023-06-26 | online | 23.81 | 0.091 | 3943 |
 
-## Error Analysis by Model
+### Error Analysis by Model
 | Model | Avg WER% | Substitutions | Deletions | Insertions |
 |-------|----------|--------------|-----------|------------|
 | sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | 18.45 | 872 | 637 | 274 |
@@ -232,3 +232,52 @@
 | sherpa-onnx-streaming-zipformer-en-2023-02-21 | 25.14 | 2655 | 1306 | 867 |
 | sherpa-onnx-streaming-zipformer-en-2023-06-21 | 12.84 | 1173 | 506 | 623 |
 | sherpa-onnx-streaming-zipformer-en-2023-06-26 | 23.81 | 2565 | 1322 | 833 |
+
+## Rune 19 (online - normalized text - faster testing)
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | online | 18.45 | 0.073 | 3167 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-21 | online | 12.84 | 0.095 | 4067 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26 | online | 23.81 | 0.090 | 3866 |
+
+### Error Analysis by Model
+| Model | Avg WER% | Substitutions | Deletions | Insertions |
+|-------|----------|--------------|-----------|------------|
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | 18.45 | 872 | 637 | 274 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-21 | 12.84 | 1173 | 506 | 623 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26 | 23.81 | 2565 | 1322 | 833 |
+
+## Run 20 (online - normalized text - faster testing)
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | online | 18.23 | 0.077 | 5317 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-21 | online | 12.65 | 0.121 | 8403 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-21-int8 | online | 12.55 | 0.091 | 6297 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26 | online | 24.21 | 0.110 | 7608 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26-int8 | online | 24.20 | 0.163 | 11436 |
+
+## Error Analysis by Model
+
+| Model | Avg WER% | Substitutions | Deletions | Insertions |
+|-------|----------|--------------|-----------|------------|
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | 18.23 | 2384 | 1764 | 746 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-21 | 12.65 | 1740 | 782 | 804 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-21-int8 | 12.55 | 1716 | 799 | 792 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26 | 24.21 | 3553 | 2051 | 1019 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26-int8 | 24.20 | 3541 | 2072 | 1010 |
+
+## Run 21 (online - normalized text - faster testing)
+| Model | Type | Avg WER% | Avg RTF | Avg Duration(ms) |
+|-------|------|----------|---------|------------------|
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | online | 17.92 | 0.074 | 5315 |
+| sherpa-onnx-streaming-zipformer-ar_en_id_ja_ru_th_vi_zh-2025-02-10 | online | 19.63 | 0.181 | 12700 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-21-int8 | online | 12.53 | 0.075 | 5440 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26-int8 | online | 23.86 | 0.079 | 5702 |
+
+### Error Analysis by Model
+| Model | Avg WER% | Substitutions | Deletions | Insertions |
+|-------|----------|--------------|-----------|------------|
+| sherpa-onnx-nemo-streaming-fast-conformer-transducer-en-1040ms | 17.92 | 2513 | 1889 | 777 |
+| sherpa-onnx-streaming-zipformer-ar_en_id_ja_ru_th_vi_zh-2025-02-10 | 19.63 | 2076 | 2750 | 717 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-21-int8 | 12.53 | 1854 | 853 | 860 |
+| sherpa-onnx-streaming-zipformer-en-2023-06-26-int8 | 23.86 | 3775 | 2153 | 1093 |
